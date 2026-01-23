@@ -1,0 +1,35 @@
+{
+  "name": "@milemoto/types",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "default": "./dist/api/index.js"
+    },
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "default": "./dist/db/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist",
+    "test": "npm run build && tsx --test \"tests/**/*.test.ts\""
+  },
+  "dependencies": {
+    "drizzle-orm": "^1.0.0-beta.2-86f844e",
+    "drizzle-zod": "^1.0.0-beta.2-86f844e",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3"
+  }
+}

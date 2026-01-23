@@ -1,0 +1,361 @@
+import { and, asc, desc, eq, exists, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import {
+  brands,
+  categories,
+  grades,
+  productimages,
+  products,
+  productspecificationfields,
+  productspecifications,
+  productvariantattributes,
+  productvariants,
+  unitfields,
+  unitgroups,
+  unitvalues,
+  variantvalues,
+  warranties,
+} from '@milemoto/types';
+import { db } from '../../db/drizzle.js';
+import { buildPaginatedResponse } from '../../utils/response.js';
+import type { ProductSpecification, ProductVariant } from '@milemoto/types';
+import type { ListQueryDto } from '../../routes/admin/helpers/product.helpers.js';
+import { productSelect, type ProductVariantListItem } from './shared.js';
+
+export async function listProducts(query: ListQueryDto) {
+  const offset = (query.page - 1) * query.limit;
+  const categoryIds = Array.isArray(query.categoryId)
+    ? query.categoryId
+    : query.categoryId
+      ? [query.categoryId]
+      : [];
+  const subCategoryIds = Array.isArray(query.subCategoryId)
+    ? query.subCategoryId
+    : query.subCategoryId
+      ? [query.subCategoryId]
+      : [];
+  const brandIds = Array.isArray(query.brandId)
+    ? query.brandId
+    : query.brandId
+      ? [query.brandId]
+      : [];
+  const gradeIds = Array.isArray(query.gradeId)
+    ? query.gradeId
+    : query.gradeId
+      ? [query.gradeId]
+      : [];
+  const warrantyIds = Array.isArray(query.warrantyId)
+    ? query.warrantyId
+    : query.warrantyId
+      ? [query.warrantyId]
+      : [];
+  const specValueIds = Array.isArray(query.specValueId)
+    ? query.specValueId
+    : query.specValueId
+      ? [query.specValueId]
+      : [];
+
+  const filters = [
+    categoryIds.length > 0 ? inArray(products.categoryId, categoryIds) : undefined,
+    subCategoryIds.length > 0 ? inArray(products.subCategoryId, subCategoryIds) : undefined,
+    brandIds.length > 0 ? inArray(products.brandId, brandIds) : undefined,
+    gradeIds.length > 0 ? inArray(products.gradeId, gradeIds) : undefined,
+    warrantyIds.length > 0 ? inArray(products.warrantyId, warrantyIds) : undefined,
+    specValueIds.length > 0
+      ? exists(
+          db
+            .select({ one: sql<number>`1` })
+            .from(productspecifications)
+            .where(
+              and(
+                eq(productspecifications.productId, products.id),
+                inArray(productspecifications.unitValueId, specValueIds)
+              )
+            )
+        )
+      : undefined,
+    query.status ? eq(products.status, query.status) : undefined,
+    query.search
+      ? or(
+          like(products.name, `%${query.search}%`),
+          exists(
+            db
+              .select({ one: sql<number>`1` })
+              .from(productvariants)
+              .where(
+                and(
+                  eq(productvariants.productId, products.id),
+                  or(
+                    like(productvariants.sku, `%${query.search}%`),
+                    like(productvariants.barcode, `%${query.search}%`)
+                  )
+                )
+              )
+          )
+        )
+      : undefined,
+  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
+
+  const where = filters.length ? and(...filters) : undefined;
+
+  const [items, countRows, variantCountRows] = await Promise.all([
+    db
+      .select({
+        ...productSelect,
+        brandName: brands.name,
+        categoryName: categories.name,
+        subCategoryName: sql<
+          string | null
+        >`(SELECT c2.name FROM categories c2 WHERE c2.id = ${products.subCategoryId} LIMIT 1)`,
+        gradeName: grades.name,
+        warrantyName: warranties.name,
+        price: sql<
+          number | null
+        >`(SELECT pv.price FROM productvariants pv WHERE pv.productId = ${products.id} ORDER BY pv.id ASC LIMIT 1)`,
+        sku: sql<
+          string | null
+        >`(SELECT pv.sku FROM productvariants pv WHERE pv.productId = ${products.id} ORDER BY pv.id ASC LIMIT 1)`,
+      })
+      .from(products)
+      .leftJoin(brands, eq(products.brandId, brands.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(grades, eq(products.gradeId, grades.id))
+      .leftJoin(warranties, eq(products.warrantyId, warranties.id))
+      .where(where)
+      .orderBy(desc(products.createdAt))
+      .limit(query.limit)
+      .offset(offset),
+    db
+      .select({ total: sql<number>`count(*)` })
+      .from(products)
+      .where(where),
+    db
+      .select({ totalVariants: sql<number>`count(${productvariants.id})` })
+      .from(productvariants)
+      .innerJoin(products, eq(productvariants.productId, products.id))
+      .where(where),
+  ]);
+
+  const total = Number(countRows[0]?.total ?? 0);
+  const totalVariants = Number(variantCountRows[0]?.totalVariants ?? 0);
+
+  return buildPaginatedResponse(
+    {
+      items,
+      totalCount: total,
+      page: query.page,
+      limit: query.limit,
+    },
+    { totalVariants }
+  );
+}
+
+export async function listAllProductVariants(query: {
+  page: number;
+  limit: number;
+  search?: string | undefined;
+}) {
+  const offset = (query.page - 1) * query.limit;
+
+  const filters = [
+    query.search
+      ? or(
+          like(productvariants.sku, `%${query.search}%`),
+          like(productvariants.barcode, `%${query.search}%`),
+          like(productvariants.name, `%${query.search}%`),
+          like(products.name, `%${query.search}%`)
+        )
+      : undefined,
+  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
+
+  const where = filters.length ? and(...filters) : undefined;
+
+  const [items, countRows] = await Promise.all([
+    db
+      .select({
+        id: productvariants.id,
+        sku: productvariants.sku,
+        barcode: productvariants.barcode,
+        price: productvariants.price,
+        variantName: productvariants.name,
+        productName: products.name,
+        imagePath: sql<
+          string | null
+        >`(SELECT pi.imagePath FROM productimages pi WHERE pi.productId = ${products.id} ORDER BY pi.isPrimary DESC, pi.id ASC LIMIT 1)`,
+      })
+      .from(productvariants)
+      .innerJoin(products, eq(productvariants.productId, products.id))
+      .where(where)
+      .orderBy(asc(products.name), asc(productvariants.sku))
+      .limit(query.limit)
+      .offset(offset),
+    db
+      .select({ total: sql<number>`count(${productvariants.id})` })
+      .from(productvariants)
+      .innerJoin(products, eq(productvariants.productId, products.id))
+      .where(where),
+  ]);
+
+  const total = Number(countRows[0]?.total ?? 0);
+
+  return buildPaginatedResponse({
+    items: items as ProductVariantListItem[],
+    totalCount: total,
+    page: query.page,
+    limit: query.limit,
+  });
+}
+
+export async function getProduct(id: number) {
+  const rows = await db
+    .select({
+      ...productSelect,
+      brandName: brands.name,
+      categoryName: categories.name,
+      subCategoryName: sql<
+        string | null
+      >`(SELECT c2.name FROM categories c2 WHERE c2.id = ${products.subCategoryId} LIMIT 1)`,
+      gradeName: grades.name,
+      warrantyName: warranties.name,
+    })
+    .from(products)
+    .leftJoin(brands, eq(products.brandId, brands.id))
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(grades, eq(products.gradeId, grades.id))
+    .leftJoin(warranties, eq(products.warrantyId, warranties.id))
+    .where(eq(products.id, id))
+    .limit(1);
+
+  const product = rows[0];
+  if (!product) return null;
+
+  const variantRows = await db
+    .select()
+    .from(productvariants)
+    .where(eq(productvariants.productId, id));
+  const variantIds = variantRows.map((v) => v.id);
+
+  const [attrRows, variantImgRows] = await Promise.all([
+    variantIds.length
+      ? db
+          .select({
+            id: productvariantattributes.id,
+            productVariantId: productvariantattributes.productVariantId,
+            variantValueId: productvariantattributes.variantValueId,
+            valueName: variantvalues.value,
+          })
+          .from(productvariantattributes)
+          .innerJoin(variantvalues, eq(productvariantattributes.variantValueId, variantvalues.id))
+          .where(inArray(productvariantattributes.productVariantId, variantIds))
+      : Promise.resolve([]),
+    variantIds.length
+      ? db
+          .select({
+            productVariantId: productimages.productVariantId,
+            imagePath: productimages.imagePath,
+          })
+          .from(productimages)
+          .where(inArray(productimages.productVariantId, variantIds))
+      : Promise.resolve([]),
+  ]);
+
+  const attrsByVariant = new Map<
+    number,
+    { variantValueId: number; productVariantId: number; valueName: string }[]
+  >();
+  for (const a of attrRows) {
+    const list = attrsByVariant.get(a.productVariantId) ?? [];
+    list.push({
+      productVariantId: a.productVariantId,
+      variantValueId: a.variantValueId,
+      valueName: a.valueName,
+    });
+    attrsByVariant.set(a.productVariantId, list);
+  }
+
+  const imgByVariant = new Map<number, string>();
+  for (const img of variantImgRows) {
+    if (img.productVariantId) imgByVariant.set(img.productVariantId, img.imagePath);
+  }
+
+  const variants = variantRows.map((v) => {
+    const attrs = attrsByVariant.get(v.id) ?? [];
+    const computedName =
+      attrs.length > 0
+        ? attrs
+            .map((a) => a.valueName)
+            .filter(Boolean)
+            .join(' / ')
+        : v.name;
+    return {
+      ...v,
+      name: computedName,
+      attributes: attrs.map(({ productVariantId, variantValueId }) => ({
+        productVariantId,
+        variantValueId,
+      })),
+      imagePath: imgByVariant.get(v.id) ?? null,
+    } as unknown as ProductVariant;
+  });
+
+  const baseImages = await db
+    .select({ imagePath: productimages.imagePath })
+    .from(productimages)
+    .where(and(eq(productimages.productId, id), isNull(productimages.productVariantId)))
+    .orderBy(desc(productimages.isPrimary), asc(productimages.id));
+
+  const specRows = await db
+    .select({
+      specId: productspecifications.id,
+      unitGroupId: productspecifications.unitGroupId,
+      unitValueId: productspecifications.unitValueId,
+      groupName: unitgroups.name,
+      valueName: unitvalues.name,
+      valueCode: unitvalues.code,
+    })
+    .from(productspecifications)
+    .innerJoin(unitgroups, eq(productspecifications.unitGroupId, unitgroups.id))
+    .innerJoin(unitvalues, eq(productspecifications.unitValueId, unitvalues.id))
+    .where(eq(productspecifications.productId, id));
+
+  const specIds = specRows.map((s) => s.specId);
+  const specFieldRows = specIds.length
+    ? await db
+        .select({
+          productSpecificationId: productspecificationfields.productSpecificationId,
+          unitFieldId: productspecificationfields.unitFieldId,
+          value: productspecificationfields.value,
+          fieldName: unitfields.name,
+        })
+        .from(productspecificationfields)
+        .innerJoin(unitfields, eq(productspecificationfields.unitFieldId, unitfields.id))
+        .where(inArray(productspecificationfields.productSpecificationId, specIds))
+    : [];
+
+  const fieldsBySpec = new Map<
+    number,
+    { unitFieldId: number; value: string | null; fieldName: string }[]
+  >();
+  for (const f of specFieldRows) {
+    const list = fieldsBySpec.get(f.productSpecificationId) ?? [];
+    list.push({ unitFieldId: f.unitFieldId, value: f.value ?? null, fieldName: f.fieldName });
+    fieldsBySpec.set(f.productSpecificationId, list);
+  }
+
+  const specifications = specRows.map((s) => ({
+    id: s.specId,
+    productId: id,
+    unitGroupId: s.unitGroupId,
+    unitValueId: s.unitValueId,
+    groupName: s.groupName,
+    valueName: s.valueName,
+    valueCode: s.valueCode,
+    fields: fieldsBySpec.get(s.specId) ?? [],
+  })) as unknown as ProductSpecification[];
+
+  return {
+    ...product,
+    variants,
+    images: baseImages.map((r) => r.imagePath),
+    specifications,
+  };
+}
