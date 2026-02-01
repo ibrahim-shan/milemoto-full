@@ -49,6 +49,11 @@ const Env = z.object({
 
   JWT_ACCESS_SECRET: z.string(),
   JWT_REFRESH_SECRET: z.string(),
+
+  // Optional: Old secrets for graceful rotation (tokens signed with old secret still valid)
+  JWT_ACCESS_SECRET_OLD: z.string().optional(),
+  JWT_REFRESH_SECRET_OLD: z.string().optional(),
+
   ACCESS_TOKEN_TTL_SEC: z.coerce.number().default(900),
 
   // remember=true (persistent cookie) TTLs
@@ -118,6 +123,10 @@ const Env = z.object({
   SMS_DAILY_QUOTA_SMS: z.coerce.number().default(0),
   SMS_DAILY_QUOTA_WHATSAPP: z.coerce.number().default(0),
   INFOBIP_WEBHOOK_SECRET: z.string().optional().default(''),
+
+  // Admin API rate limiting (generous but protects against abuse)
+  RATE_ADMIN_WINDOW_MS: z.coerce.number().default(60_000), // 1 minute
+  RATE_ADMIN_MAX: z.coerce.number().default(200), // 200 requests per minute per IP
 
   // Short-TTL cache for RBAC permissions to avoid DB hit per request
   RBAC_PERMISSIONS_CACHE_TTL_MS: z.coerce.number().int().min(0).default(30_000),

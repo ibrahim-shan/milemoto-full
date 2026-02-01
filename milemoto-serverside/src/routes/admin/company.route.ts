@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requirePermission } from '../../middleware/authz.js';
 import { CompanyProfileInput } from './helpers/company.helpers.js';
 import { getCompanyProfile, upsertCompanyProfile } from '../../services/company.service.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
 
 const router = Router();
 
@@ -9,27 +10,27 @@ const router = Router();
  * GET /api/v1/admin/company
  * Get the company profile
  */
-router.get('/', requirePermission('settings.read'), async (_req, res, next) => {
-  try {
+router.get(
+  '/',
+  requirePermission('settings.read'),
+  asyncHandler(async (_req, res) => {
     const profile = await getCompanyProfile();
     res.json(profile);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
 /**
  * PUT /api/v1/admin/company
  * Update the company profile
  */
-router.put('/', requirePermission('settings.manage'), async (req, res, next) => {
-  try {
+router.put(
+  '/',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
     const payload = CompanyProfileInput.parse(req.body);
     const profile = await upsertCompanyProfile(payload);
     res.json(profile);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
 export default router;

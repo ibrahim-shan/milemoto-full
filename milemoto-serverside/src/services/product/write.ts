@@ -65,7 +65,14 @@ export async function createProduct(data: CreateProductDto) {
         throw httpError(500, 'InsertFailed', 'Failed to create product');
       }
 
-      // 3) Variants
+      // 3) Variants - collect images for batch insert at end
+      const variantImages: Array<{
+        productId: number;
+        productVariantId: number;
+        imagePath: string;
+        isPrimary: boolean;
+      }> = [];
+
       for (const variant of data.variants ?? []) {
         const variantInsert = await tx
           .insert(productvariants)
@@ -97,14 +104,20 @@ export async function createProduct(data: CreateProductDto) {
           );
         }
 
+        // Collect variant image for batch insert instead of inserting immediately
         if (variant.imagePath) {
-          await tx.insert(productimages).values({
+          variantImages.push({
             productId: insertedProductId,
             productVariantId: variantId,
             imagePath: variant.imagePath,
             isPrimary: false,
           });
         }
+      }
+
+      // Batch insert all variant images at once
+      if (variantImages.length > 0) {
+        await tx.insert(productimages).values(variantImages);
       }
 
       // 4) Base images
@@ -271,6 +284,14 @@ export async function updateProduct(id: number, data: UpdateProductDto) {
           await tx.delete(productvariants).where(inArray(productvariants.id, toDelete));
         }
 
+        // Collect images for new variants to batch insert at end
+        const newVariantImages: Array<{
+          productId: number;
+          productVariantId: number;
+          imagePath: string;
+          isPrimary: boolean;
+        }> = [];
+
         for (const variant of data.variants) {
           let nextSku = variant.sku;
           if (brandChanged) {
@@ -369,8 +390,9 @@ export async function updateProduct(id: number, data: UpdateProductDto) {
               );
             }
 
+            // Collect image for batch insert instead of inserting immediately
             if (variant.imagePath) {
-              await tx.insert(productimages).values({
+              newVariantImages.push({
                 productId: id,
                 productVariantId: variantId,
                 imagePath: variant.imagePath,
@@ -378,6 +400,11 @@ export async function updateProduct(id: number, data: UpdateProductDto) {
               });
             }
           }
+        }
+
+        // Batch insert all new variant images at once
+        if (newVariantImages.length > 0) {
+          await tx.insert(productimages).values(newVariantImages);
         }
       }
 

@@ -6,6 +6,7 @@ import { webhooks } from './webhooks/index.js';
 
 import { admin } from './admin.route.js';
 import { ensureInstalled } from '../middleware/ensureInstalled.js';
+import { adminLimiter } from '../middleware/rateLimit.js';
 
 export const apiV1 = Router();
 
@@ -15,4 +16,4 @@ apiV1.use('/auth', auth);
 apiV1.use('/setup', setup);
 apiV1.use('/webhooks', webhooks);
 
-apiV1.use('/admin', ensureInstalled, admin);
+apiV1.use('/admin', ensureInstalled, adminLimiter, admin);

@@ -13,53 +13,54 @@ import {
   AdjustmentInput,
   TransferInput,
 } from './helpers/stock.helpers.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
 
 const router = Router();
 
-router.get('/', requirePermission('stock.read'), async (req, res, next) => {
-  try {
+router.get(
+  '/',
+  requirePermission('stock.read'),
+  asyncHandler(async (req, res) => {
     const query = LevelListQuery.parse(req.query);
     const result = await listStockLevels(query);
     res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
-router.get('/movements', requirePermission('stock_movements.read'), async (req, res, next) => {
-  try {
+router.get(
+  '/movements',
+  requirePermission('stock_movements.read'),
+  asyncHandler(async (req, res) => {
     const query = MovementListQuery.parse(req.query);
     const result = await listStockMovements(query);
     res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
-router.post('/adjustments', requirePermission('stock_movements.manage'), async (req, res, next) => {
-  try {
+router.post(
+  '/adjustments',
+  requirePermission('stock_movements.manage'),
+  asyncHandler(async (req, res) => {
     const body = AdjustmentInput.parse(req.body);
     if (!req.user) {
       throw httpError(401, 'Unauthorized', 'Authentication required');
     }
     const result = await createStockAdjustment(body, Number(req.user.id));
     res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
-router.post('/transfers', requirePermission('stock_movements.manage'), async (req, res, next) => {
-  try {
+router.post(
+  '/transfers',
+  requirePermission('stock_movements.manage'),
+  asyncHandler(async (req, res) => {
     const body = TransferInput.parse(req.body);
     if (!req.user) {
       throw httpError(401, 'Unauthorized', 'Authentication required');
     }
     const result = await createStockTransfer(body, Number(req.user.id));
     res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
 export default router;

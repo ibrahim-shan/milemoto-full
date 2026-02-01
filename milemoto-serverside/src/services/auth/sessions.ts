@@ -15,6 +15,8 @@ import {
   Login,
   validateTrustedCookie,
   setRefreshCookie,
+  setSessionInfoCookie,
+  clearSessionInfoCookie,
   ttlForRole,
   revokeAllTrustedDevices,
   cookieDomain,
@@ -65,8 +67,8 @@ export async function login(data: z.infer<typeof Login>, req: Request, res: Resp
     lookup.type === 'email'
       ? await baseQuery.where(eq(users.email, lookup.value)).limit(1)
       : await baseQuery
-          .where(or(...lookup.candidates.map((phone) => eq(users.phone, phone))))
-          .limit(1);
+        .where(or(...lookup.candidates.map((phone) => eq(users.phone, phone))))
+        .limit(1);
   if (!u) throw invalid();
   if (u.status !== 'active') {
     logger.warn(
@@ -114,6 +116,7 @@ export async function login(data: z.infer<typeof Login>, req: Request, res: Resp
           replacedBy: null,
         });
         setRefreshCookie(res, refresh, { remember: Boolean(remember), maxAgeSec: ttlSec });
+        setSessionInfoCookie(res, { role, expiresAt: exp2, remember: Boolean(remember) });
         const access = signAccess({ sub: String(u.id), role });
         return {
           accessToken: access,
@@ -184,6 +187,7 @@ export async function login(data: z.infer<typeof Login>, req: Request, res: Resp
   });
 
   setRefreshCookie(res, refresh, { remember: Boolean(remember), maxAgeSec: ttlSec });
+  setSessionInfoCookie(res, { role, expiresAt: exp2, remember: Boolean(remember) });
   const access = signAccess({ sub: String(u.id), role });
   return {
     accessToken: access,
@@ -272,6 +276,7 @@ export async function refresh(req: Request, res: Response) {
   });
 
   setRefreshCookie(res, newRefresh, { remember, maxAgeSec: ttlSec });
+  setSessionInfoCookie(res, { role, expiresAt: exp, remember });
   const access = signAccess({ sub: userId, role });
 
   return { accessToken: access } as RefreshResponseDto;
@@ -294,6 +299,7 @@ export async function logout(req: Request, res: Response) {
       sameSite: 'lax',
       secure: env.NODE_ENV === 'production',
     });
+    clearSessionInfoCookie(res);
   } catch {
     throw httpError(401, 'InvalidToken', 'Invalid token');
   }
@@ -320,6 +326,7 @@ export async function logoutAll(userId: string, res: Response) {
     sameSite: 'lax',
     secure: env.NODE_ENV === 'production',
   });
+  clearSessionInfoCookie(res);  
 
   logger.info({ code: 'UserLogoutAll', userId }, 'User requested logout on all devices');
 }

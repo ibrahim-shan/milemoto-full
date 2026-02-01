@@ -7,58 +7,59 @@ import {
   CreateInboundShippingMethod,
   UpdateInboundShippingMethod,
 } from './helpers/inboundShippingMethod.helpers.js';
+import { asyncHandler } from '../../utils/asyncHandler.js';
 
 const router = Router();
 
-router.get('/', requirePermission('settings.read'), async (req, res, next) => {
-  try {
+router.get(
+  '/',
+  requirePermission('settings.read'),
+  asyncHandler(async (req, res) => {
     const query = ListQuery.parse(req.query);
     const result = await inboundShippingMethodService.listInboundShippingMethods(query);
     res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
+  })
+);
 
-router.get('/:id', requirePermission('settings.read'), async (req, res, next) => {
-  try {
+router.get(
+  '/:id',
+  requirePermission('settings.read'),
+  asyncHandler(async (req, res) => {
     const id = z.coerce.number().int().min(1).parse(req.params.id);
     const method = await inboundShippingMethodService.getInboundShippingMethod(id);
     res.json(method);
-  } catch (error) {
-    next(error);
-  }
-});
+  })
+);
 
-router.post('/', requirePermission('settings.manage'), async (req, res, next) => {
-  try {
+router.post(
+  '/',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
     const data = CreateInboundShippingMethod.parse(req.body);
     const method = await inboundShippingMethodService.createInboundShippingMethod(data);
     res.status(201).json(method);
-  } catch (error) {
-    next(error);
-  }
-});
+  })
+);
 
-router.put('/:id', requirePermission('settings.manage'), async (req, res, next) => {
-  try {
+router.put(
+  '/:id',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
     const id = z.coerce.number().int().min(1).parse(req.params.id);
     const data = UpdateInboundShippingMethod.parse(req.body);
     const method = await inboundShippingMethodService.updateInboundShippingMethod(id, data);
     res.json(method);
-  } catch (error) {
-    next(error);
-  }
-});
+  })
+);
 
-router.delete('/:id', requirePermission('settings.manage'), async (req, res, next) => {
-  try {
+router.delete(
+  '/:id',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
     const id = z.coerce.number().int().min(1).parse(req.params.id);
     await inboundShippingMethodService.deleteInboundShippingMethod(id);
     res.status(204).send();
-  } catch (error) {
-    next(error);
-  }
-});
+  })
+);
 
 export default router;

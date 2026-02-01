@@ -101,3 +101,18 @@ export const phoneVerifyConfirmLimiter = rateLimit({
     return uid ? `uid:${uid}` : ipOf(req);
   },
 });
+
+/**
+ * Rate limiter for all /api/v1/admin/* routes.
+ * Uses authenticated user ID when available, falls back to IP.
+ */
+export const adminLimiter = rateLimit({
+  windowMs: env.RATE_ADMIN_WINDOW_MS,
+  limit: env.RATE_ADMIN_MAX,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const uid = req.user?.id;
+    return uid ? `admin:uid:${uid}` : `admin:${ipOf(req)}`;
+  },
+});

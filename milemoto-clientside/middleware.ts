@@ -15,10 +15,30 @@ async function ensureAuthenticated(req: NextRequest): Promise<GuardResult> {
   const loginUrl = new URL('/signin', req.url);
   loginUrl.searchParams.set('next', req.nextUrl.pathname + req.nextUrl.search);
 
+  // Must have refresh cookie at minimum
   if (!req.cookies.get('mm_refresh')) {
     return { redirect: NextResponse.redirect(loginUrl) };
   }
 
+  // Check session info cookie for expiry
+  const sessionInfoCookie = req.cookies.get('mm_session_info');
+  if (sessionInfoCookie?.value) {
+    try {
+      const sessionInfo = JSON.parse(sessionInfoCookie.value) as { exp?: number };
+      const now = Date.now();
+      const exp = sessionInfo.exp ?? 0;
+      const fiveMinutes = 5 * 60 * 1000;
+
+      // If session is still valid (not within 5 min of expiry), skip refresh
+      if (exp > now + fiveMinutes) {
+        return {};
+      }
+    } catch {
+      // Invalid cookie format, fall through to refresh
+    }
+  }
+
+  // Session cookie missing, expired, or near expiry - call refresh to validate and renew
   let refreshRes: Response;
   try {
     refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
@@ -46,10 +66,34 @@ async function ensureAdmin(req: NextRequest): Promise<GuardResult> {
   loginUrl.searchParams.set('next', req.nextUrl.pathname + req.nextUrl.search);
   const accountUrl = new URL('/account', req.url);
 
+  // Must have refresh cookie at minimum
   if (!req.cookies.get('mm_refresh')) {
     return { redirect: NextResponse.redirect(loginUrl) };
   }
 
+  // Check session info cookie for role and expiry
+  const sessionInfoCookie = req.cookies.get('mm_session_info');
+  if (sessionInfoCookie?.value) {
+    try {
+      const sessionInfo = JSON.parse(sessionInfoCookie.value) as { role?: string; exp?: number };
+      const now = Date.now();
+      const exp = sessionInfo.exp ?? 0;
+      const fiveMinutes = 5 * 60 * 1000;
+
+      // If session is still valid (not within 5 min of expiry) and user is admin, skip refresh
+      if (exp > now + fiveMinutes) {
+        if (sessionInfo.role !== 'admin') {
+          return { redirect: NextResponse.redirect(accountUrl) };
+        }
+        // Valid admin session, no need to call refresh
+        return {};
+      }
+    } catch {
+      // Invalid cookie format, fall through to refresh
+    }
+  }
+
+  // Session cookie missing, expired, or near expiry - call refresh to validate and renew
   let refreshRes: Response;
   try {
     refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
