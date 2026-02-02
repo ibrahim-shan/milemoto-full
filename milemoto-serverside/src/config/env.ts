@@ -43,6 +43,8 @@ const Env = z.object({
 
   // Log DB queries taking longer than this threshold (ms)
   DB_SLOW_QUERY_MS: z.coerce.number().int().min(0).default(250),
+  // Database connection pool size
+  DB_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
 
   // Logging
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),

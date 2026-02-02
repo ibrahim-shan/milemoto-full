@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 // Types
 export type { CreateVariant };
@@ -37,15 +38,7 @@ export function useGetVariants(query: ListQuery = {}) {
   return useQuery({
     queryKey: variantKeys.list(query),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (query.page) searchParams.append('page', query.page.toString());
-      if (query.limit) searchParams.append('limit', query.limit.toString());
-      if (query.search) searchParams.append('search', query.search);
-      if (query.status) searchParams.append('status', query.status);
-
-      const queryString = searchParams.toString();
-      const url = `/admin/variants${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/variants', query);
       const data = await authorizedGet<PaginatedVariantResponse>(url);
       return data;
     },

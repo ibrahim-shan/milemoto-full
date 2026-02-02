@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type VendorListQuery = {
   page?: number;
@@ -35,22 +36,7 @@ export function useGetVendors(params: VendorListQuery, options?: QueryOptions) {
   return useQuery({
     queryKey: vendorKeys.list(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.status) searchParams.append('status', params.status);
-      if (params.country) {
-        if (Array.isArray(params.country)) {
-          params.country.forEach(value => searchParams.append('country', value));
-        } else {
-          searchParams.append('country', params.country);
-        }
-      }
-
-      const queryString = searchParams.toString();
-      const url = `/admin/vendors${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/vendors', params);
       const data = await authorizedGet<PaginatedVendorResponse>(url);
       return data;
     },

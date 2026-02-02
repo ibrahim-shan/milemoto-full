@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type PurchaseOrderListQuery = {
   page?: number;
@@ -37,20 +38,7 @@ export function useGetPurchaseOrders(params: PurchaseOrderListQuery) {
   return useQuery({
     queryKey: purchaseOrderKeys.list(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.status) searchParams.append('status', params.status);
-      if (params.vendorId) searchParams.append('vendorId', params.vendorId.toString());
-      if (params.paymentMethodId)
-        searchParams.append('paymentMethodId', params.paymentMethodId.toString());
-      if (params.dateFrom) searchParams.append('dateFrom', params.dateFrom);
-      if (params.dateTo) searchParams.append('dateTo', params.dateTo);
-
-      const queryString = searchParams.toString();
-      const url = `/admin/purchase-orders${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/purchase-orders', params);
       const data = await authorizedGet<PurchaseOrderListResponse>(url);
       return {
         ...data,

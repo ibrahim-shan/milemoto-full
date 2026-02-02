@@ -20,7 +20,7 @@ import { isDuplicateEntryError, isForeignKeyConstraintError } from '../../utils/
 import { syncAutomaticCollectionsForProduct } from '../collection.service.js';
 import type { CreateProductDto, UpdateProductDto } from '@milemoto/types';
 import { generateSlug, generateVariantSku } from './shared.js';
-import { deleteImageFromStorage } from './storage.js';
+import { deleteImagesWithLogging } from './storage.js';
 import { getProduct } from './read.js';
 
 export async function createProduct(data: CreateProductDto) {
@@ -474,7 +474,7 @@ export async function updateProduct(id: number, data: UpdateProductDto) {
     await syncAutomaticCollectionsForProduct(id);
 
     if (filesToDelete.length > 0) {
-      void Promise.allSettled(filesToDelete.map((url) => deleteImageFromStorage(url)));
+      deleteImagesWithLogging(filesToDelete, `updateProduct:${id}`);
     }
 
     return getProduct(id);
@@ -576,7 +576,7 @@ export async function deleteProduct(id: number) {
     const success = affected > 0;
 
     if (success && filesToDelete.length > 0) {
-      void Promise.allSettled(filesToDelete.map((url) => deleteImageFromStorage(url)));
+      deleteImagesWithLogging(filesToDelete, `deleteProduct:${id}`);
     }
 
     if (!success) {

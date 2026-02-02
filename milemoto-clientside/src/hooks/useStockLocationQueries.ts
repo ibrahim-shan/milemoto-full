@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 type QueryOptions = {
   enabled?: boolean;
@@ -28,16 +29,7 @@ export function useGetStockLocations(params: StockLocationListQueryDto, options?
   return useQuery({
     queryKey: stockLocationKeys.list(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.status) searchParams.append('status', params.status);
-      if (params.type) searchParams.append('type', params.type);
-
-      const queryString = searchParams.toString();
-      const url = `/admin/stock-locations${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/stock-locations', params);
       const data = await authorizedGet<PaginatedStockLocationResponse>(url);
       return data;
     },

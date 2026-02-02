@@ -991,6 +991,7 @@ export const productvariants = mysqlTable(
       .notNull(),
   },
   (table) => [
+    index("idxVariantProduct").on(table.productId),
     uniqueIndex("uniqueBarcode").on(table.barcode),
     uniqueIndex("uniqueSku").on(table.sku),
     foreignKey({
@@ -1488,6 +1489,7 @@ export const stockmovements = mysqlTable(
       .charSet("utf8mb4")
       .collate("utf8mb4_unicode_ci"),
     referenceId: bigint({ unsigned: true, mode: "number" }),
+    transferId: varchar({ length: 36 }), // UUID to correlate transfer_in/transfer_out pairs
     note: text().charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
     createdAt: timestamp()
       .default(sql`CURRENT_TIMESTAMP`)
@@ -1500,6 +1502,7 @@ export const stockmovements = mysqlTable(
     index("idxStockMovementsLocation").on(table.stockLocationId),
     index("idxStockMovementsVariant").on(table.productVariantId),
     index("idxStockMovementsActor").on(table.performedByUserId),
+    index("idxStockMovementsTransfer").on(table.transferId),
     foreignKey({
       columns: [table.stockLocationId],
       foreignColumns: [stocklocations.id],

@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type GoodsReceiptListQuery = {
   page?: number;
@@ -29,16 +30,7 @@ export function useGetGoodsReceipts(params: GoodsReceiptListQuery) {
   return useQuery({
     queryKey: goodsReceiptKeys.list(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.purchaseOrderId)
-        searchParams.append('purchaseOrderId', params.purchaseOrderId.toString());
-
-      const queryString = searchParams.toString();
-      const url = `/admin/goods-receipts${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/goods-receipts', params);
       const data = await authorizedGet<PaginatedGoodsReceiptResponse>(url);
       return data;
     },

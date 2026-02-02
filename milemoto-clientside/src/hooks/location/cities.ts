@@ -17,18 +17,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 // FIX: Change type to number to match Zod parsing in backend routes
 type FilteredCityListParams = LocationListParams & { stateId?: number };
 
 const listCities = (params: FilteredCityListParams) => {
-  const query = new URLSearchParams({
-    search: params.search,
-    page: String(params.page),
-    limit: String(params.limit), // Pass stateId to backend for filtering.
-    ...(params.stateId && { stateId: String(params.stateId) }),
-  });
-  return authorizedGet<PaginatedResponse<CityResponse>>(`${API_BASE}/cities?${query.toString()}`);
+  const url = buildUrlWithQuery(`${API_BASE}/cities`, params);
+  return authorizedGet<PaginatedResponse<CityResponse>>(url);
 };
 
 const createCity = (data: CreateCityDto) =>

@@ -1,0 +1,1 @@
+CREATE INDEX `idxVariantProduct` ON `productvariants` (`productId`);

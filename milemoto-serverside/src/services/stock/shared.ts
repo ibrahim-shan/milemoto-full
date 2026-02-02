@@ -76,6 +76,8 @@ export function mapStockMovementRow(row: UnknownRow): StockMovementResponse {
     referenceId:
       row.referenceId !== null && row.referenceId !== undefined ? Number(row.referenceId) : null,
     note: row.note === null || typeof row.note === 'string' ? row.note : null,
+    transferId:
+      row.transferId === null || typeof row.transferId === 'string' ? row.transferId : null,
     createdAt:
       row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt ?? ''),
     updatedAt:

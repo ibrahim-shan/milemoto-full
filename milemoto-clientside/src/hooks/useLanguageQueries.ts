@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 // ==== Query Keys & API Paths ====================================
 
@@ -29,12 +30,7 @@ type LanguageListParams = {
 // ==== Fetch Functions ===========================================
 
 const listLanguages = async (params: LanguageListParams = {}) => {
-  const queryString = new URLSearchParams();
-  if (params.search) queryString.append('search', params.search);
-  if (params.page) queryString.append('page', String(params.page));
-  if (params.limit) queryString.append('limit', String(params.limit));
-
-  const url = `${API_BASE}${queryString.toString() ? `?${queryString.toString()}` : ''}`;
+  const url = buildUrlWithQuery(API_BASE, params);
   const data = await authorizedGet<PaginatedLanguageResponse>(url);
   return data;
 };

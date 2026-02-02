@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { eq, sql } from 'drizzle-orm';
 import {
   products,
@@ -223,6 +224,9 @@ export async function createStockTransfer(data: CreateStockTransferDto, userId: 
         .where(eq(stocklevels.id, toLevelId));
     }
 
+    // Generate a UUID to correlate the transfer_out and transfer_in movements
+    const transferId = crypto.randomUUID();
+
     const outInserted = await tx
       .insert(stockmovements)
       .values({
@@ -233,6 +237,7 @@ export async function createStockTransfer(data: CreateStockTransferDto, userId: 
         type: 'transfer_out',
         referenceType: 'manual_transfer',
         referenceId: null,
+        transferId,
         note: data.note ?? null,
       })
       .$returningId();
@@ -245,6 +250,7 @@ export async function createStockTransfer(data: CreateStockTransferDto, userId: 
       type: 'transfer_in',
       referenceType: 'manual_transfer',
       referenceId: null,
+      transferId,
       note: data.note ?? null,
     });
 

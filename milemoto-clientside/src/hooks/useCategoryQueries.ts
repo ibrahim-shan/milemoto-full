@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type CategoryListQuery = {
   page?: number;
@@ -34,16 +35,7 @@ export function useGetCategories(params: CategoryListQuery) {
   return useQuery({
     queryKey: categoryKeys.list(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.status) searchParams.append('status', params.status);
-      if (params.parentId) searchParams.append('parentId', params.parentId.toString());
-
-      const queryString = searchParams.toString();
-      const url = `/admin/categories${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/categories', params);
       const data = await authorizedGet<PaginatedCategoryResponse>(url);
       return data;
     },
@@ -64,14 +56,7 @@ export function useGetAllCategories(includeInactive = false, onlyRoots = false) 
   return useQuery({
     queryKey: [...categoryKeys.all, 'all', { includeInactive, onlyRoots }],
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (includeInactive) searchParams.append('includeInactive', 'true');
-      if (onlyRoots) searchParams.append('onlyRoots', 'true');
-
-      const queryString = searchParams.toString();
-      const url = `/admin/categories/all${queryString ? `?${queryString}` : ''}`;
-
-      // Assuming API returns { items: [...] } structure for this specific endpoint
+      const url = buildUrlWithQuery('/admin/categories/all', { includeInactive, onlyRoots });
       const data = await authorizedGet<{ items: CategoryDropdownItemResponse[] }>(url);
       return data;
     },

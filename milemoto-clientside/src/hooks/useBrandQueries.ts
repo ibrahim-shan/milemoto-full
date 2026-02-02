@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type BrandListQuery = {
   page?: number;
@@ -30,15 +31,7 @@ export function useGetBrands(params: BrandListQuery) {
   return useQuery({
     queryKey: brandKeys.list(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.status) searchParams.append('status', params.status);
-
-      const queryString = searchParams.toString();
-      const url = `/admin/brands${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/brands', params);
       const data = await authorizedGet<PaginatedBrandResponse>(url);
       return data;
     },

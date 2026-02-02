@@ -61,34 +61,27 @@
   - Issue: Every route has identical try/catch pattern
   - **Done:** Created `asyncHandler` utility and refactored all 27 admin route files. Eliminates try/catch boilerplate.
 
-- [ ] **Create Permission Constants/Enum**
+- [x] **Create Permission Constants/Enum** ✅
   - Location: `packages/types/src/rbac.permissions.ts` (new file)
   - Issue: Magic strings like `'products.manage'`
-  - Fix: 
-    ```typescript
-    export const PERMISSIONS = {
-      PRODUCTS_READ: 'products.read',
-      PRODUCTS_MANAGE: 'products.manage',
-      // ...
-    } as const;
-    ```
+  - **Done:** Created `PERMISSIONS` constant with 26 permission strings, `P` shorthand, and `PermissionSlug` type.
 
-- [ ] **Create Query String Builder Utility**
+- [x] **Create Query String Builder Utility** ✅
   - Location: `milemoto-clientside/src/lib/queryString.ts` (new file)
   - Issue: Every hook manually builds URLSearchParams
-  - Fix: Create reusable `buildQueryString(params)` function
+  - **Done:** Created `buildQueryString` and `buildUrlWithQuery` utilities. Refactored all 15 query hooks.
 
 ### Data Integrity
 
-- [ ] **Add Transfer Correlation ID**
+- [x] **Add Transfer Correlation ID** ✅
   - File: `packages/types/src/db.schema.ts` → `stockmovements` table
   - Issue: Transfer creates 2 records (out/in) with no link
-  - Fix: Add `transferId` column to correlate pairs
+  - **Done:** Added `transferId` (UUID) column with index. Updated transfer service to generate and assign UUID to both movements.
 
-- [ ] **Handle Failed Image Deletions**
+- [x] **Handle Failed Image Deletions** ✅
   - File: `milemoto-serverside/src/services/product/write.ts`
   - Issue: `void Promise.allSettled(...)` silently ignores failures
-  - Fix: Log failures or queue for retry
+  - **Done:** Created `deleteImagesWithLogging` that logs failures with context
 
 ---
 
@@ -96,29 +89,29 @@
 
 ### Observability
 
-- [ ] **Add Health Check with DB Ping**
+- [x] **Add Health Check with DB Ping** ✅
   - File: `milemoto-serverside/src/routes/health.route.ts`
-  - Check: Verify it tests actual DB connectivity
+  - **Done:** Added `SELECT 1` query. Returns 200 with `database: 'connected'` or 503 with error message
 
-- [ ] **Add Structured Error Logging**
+- [x] **Add Structured Error Logging** ✅
   - Scope: Error handler middleware
-  - Fix: Log error stack, request context, user ID for debugging
+  - **Done:** Logs stack, userId, IP, sanitized body/query, request context
 
 ### Reliability
 
-- [ ] **Add Graceful Shutdown Handling**
+- [x] **Add Graceful Shutdown Handling** ✅
   - File: `milemoto-serverside/src/server.ts`
-  - Fix: Handle SIGTERM, close DB connections, wait for in-flight requests
+  - **Done:** SIGTERM/SIGINT handlers, server.close() for in-flight requests, pool.end() for DB, 30s force timeout
 
-- [ ] **Verify Database Connection Pool Size**
-  - File: `milemoto-serverside/src/db/drizzle.ts`
-  - Check: Pool size appropriate for expected load
+- [x] **Verify Database Connection Pool Size** ✅
+  - File: `milemoto-serverside/src/db/pool.ts`
+  - **Done:** Made configurable via `DB_POOL_SIZE` env var (default 10, max 100)
 
 ### Database
 
-- [ ] **Audit Indexes on Join Columns**
+- [x] **Audit Indexes on Join Columns** ✅
   - Tables: `stocklevels`, `stockmovements`, `productvariants`
-  - Check: Ensure indexes exist on `productVariantId`, `stockLocationId`
+  - **Done:** All have indexes. Added missing `idxVariantProduct` on `productId`
 
 - [ ] **Consider Full-Text Search for Product Search**
   - Issue: `LIKE '%term%'` doesn't use indexes

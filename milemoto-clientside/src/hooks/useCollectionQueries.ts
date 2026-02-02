@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type CollectionListQuery = {
   page?: number;
@@ -30,17 +31,8 @@ export function useGetCollections(params: CollectionListQuery) {
   return useQuery({
     queryKey: collectionKeys.list(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.status) searchParams.append('status', params.status);
-      if (params.type) searchParams.append('type', params.type);
-
-      const qs = searchParams.toString();
-      const data = await authorizedGet<PaginatedCollectionResponse>(
-        `/admin/collections${qs ? `?${qs}` : ''}`,
-      );
+      const url = buildUrlWithQuery('/admin/collections', params);
+      const data = await authorizedGet<PaginatedCollectionResponse>(url);
       return data;
     },
   });

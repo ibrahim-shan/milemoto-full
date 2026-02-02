@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 const QUERY_KEY = 'products';
 
@@ -33,59 +34,8 @@ export function useGetProducts(params?: ProductListQueryDto) {
   return useQuery({
     queryKey: [QUERY_KEY, params],
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.append('page', params.page.toString());
-      if (params?.limit) searchParams.append('limit', params.limit.toString());
-      if (params?.search) searchParams.append('search', params.search);
-      if (params?.categoryId) {
-        if (Array.isArray(params.categoryId)) {
-          params.categoryId.forEach(value => searchParams.append('categoryId', value.toString()));
-        } else {
-          searchParams.append('categoryId', params.categoryId.toString());
-        }
-      }
-      if (params?.subCategoryId) {
-        if (Array.isArray(params.subCategoryId)) {
-          params.subCategoryId.forEach(value =>
-            searchParams.append('subCategoryId', value.toString()),
-          );
-        } else {
-          searchParams.append('subCategoryId', params.subCategoryId.toString());
-        }
-      }
-      if (params?.brandId) {
-        if (Array.isArray(params.brandId)) {
-          params.brandId.forEach(value => searchParams.append('brandId', value.toString()));
-        } else {
-          searchParams.append('brandId', params.brandId.toString());
-        }
-      }
-      if (params?.gradeId) {
-        if (Array.isArray(params.gradeId)) {
-          params.gradeId.forEach(value => searchParams.append('gradeId', value.toString()));
-        } else {
-          searchParams.append('gradeId', params.gradeId.toString());
-        }
-      }
-      if (params?.warrantyId) {
-        if (Array.isArray(params.warrantyId)) {
-          params.warrantyId.forEach(value => searchParams.append('warrantyId', value.toString()));
-        } else {
-          searchParams.append('warrantyId', params.warrantyId.toString());
-        }
-      }
-      if (params?.specValueId) {
-        if (Array.isArray(params.specValueId)) {
-          params.specValueId.forEach(value => searchParams.append('specValueId', value.toString()));
-        } else {
-          searchParams.append('specValueId', params.specValueId.toString());
-        }
-      }
-      if (params?.status) searchParams.append('status', params.status);
-
-      const data = await authorizedGet<PaginatedProductResponse>(
-        `/admin/products?${searchParams.toString()}`,
-      );
+      const url = buildUrlWithQuery('/admin/products', params ?? {});
+      const data = await authorizedGet<PaginatedProductResponse>(url);
       return data;
     },
   });
@@ -102,14 +52,8 @@ export function useGetAllProductVariants(
   return useQuery({
     queryKey: ['product-variants', params],
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.append('page', params.page.toString());
-      if (params?.limit) searchParams.append('limit', params.limit.toString());
-      if (params?.search) searchParams.append('search', params.search);
-
-      const data = await authorizedGet<PaginatedResponse<ProductVariantItemResponse>>(
-        `/admin/products/variants?${searchParams.toString()}`,
-      );
+      const url = buildUrlWithQuery('/admin/products/variants', params ?? {});
+      const data = await authorizedGet<PaginatedResponse<ProductVariantItemResponse>>(url);
       return data;
     },
     enabled: options?.enabled ?? true,

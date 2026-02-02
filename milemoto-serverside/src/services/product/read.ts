@@ -62,21 +62,53 @@ export async function listProducts(query: ListQueryDto) {
     warrantyIds.length > 0 ? inArray(products.warrantyId, warrantyIds) : undefined,
     specValueIds.length > 0
       ? exists(
-          db
-            .select({ one: sql<number>`1` })
-            .from(productspecifications)
-            .where(
-              and(
-                eq(productspecifications.productId, products.id),
-                inArray(productspecifications.unitValueId, specValueIds)
-              )
+        db
+          .select({ one: sql<number>`1` })
+          .from(productspecifications)
+          .where(
+            and(
+              eq(productspecifications.productId, products.id),
+              inArray(productspecifications.unitValueId, specValueIds)
             )
-        )
+          )
+      )
       : undefined,
     query.status ? eq(products.status, query.status) : undefined,
     query.search
-      ? or(
-          like(products.name, `%${query.search}%`),
+      ? (() => {
+        const search = query.search.trim();
+        // Use FULLTEXT for 3+ char searches (MySQL ft_min_word_len default)
+        if (search.length >= 3) {
+          return or(
+            sql`MATCH(${products.name}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`,
+            exists(
+              db
+                .select({ one: sql<number>`1` })
+                .from(productvariants)
+                .where(
+                  and(
+                    eq(productvariants.productId, products.id),
+                    sql`MATCH(${productvariants.name}, ${productvariants.sku}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`
+                  )
+                )
+            ),
+            // Also check barcode with LIKE (not in FULLTEXT index)
+            exists(
+              db
+                .select({ one: sql<number>`1` })
+                .from(productvariants)
+                .where(
+                  and(
+                    eq(productvariants.productId, products.id),
+                    like(productvariants.barcode, `%${search}%`)
+                  )
+                )
+            )
+          );
+        }
+        // Fall back to LIKE for short queries
+        return or(
+          like(products.name, `%${search}%`),
           exists(
             db
               .select({ one: sql<number>`1` })
@@ -85,13 +117,14 @@ export async function listProducts(query: ListQueryDto) {
                 and(
                   eq(productvariants.productId, products.id),
                   or(
-                    like(productvariants.sku, `%${query.search}%`),
-                    like(productvariants.barcode, `%${query.search}%`)
+                    like(productvariants.sku, `%${search}%`),
+                    like(productvariants.barcode, `%${search}%`)
                   )
                 )
               )
           )
-        )
+        );
+      })()
       : undefined,
   ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
 
@@ -158,12 +191,24 @@ export async function listAllProductVariants(query: {
 
   const filters = [
     query.search
-      ? or(
-          like(productvariants.sku, `%${query.search}%`),
-          like(productvariants.barcode, `%${query.search}%`),
-          like(productvariants.name, `%${query.search}%`),
-          like(products.name, `%${query.search}%`)
-        )
+      ? (() => {
+        const search = query.search.trim();
+        // Use FULLTEXT for 3+ char searches
+        if (search.length >= 3) {
+          return or(
+            sql`MATCH(${productvariants.name}, ${productvariants.sku}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`,
+            sql`MATCH(${products.name}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`,
+            like(productvariants.barcode, `%${search}%`)
+          );
+        }
+        // Fall back to LIKE for short queries
+        return or(
+          like(productvariants.sku, `%${search}%`),
+          like(productvariants.barcode, `%${search}%`),
+          like(productvariants.name, `%${search}%`),
+          like(products.name, `%${search}%`)
+        );
+      })()
       : undefined,
   ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
 
@@ -237,24 +282,24 @@ export async function getProduct(id: number) {
   const [attrRows, variantImgRows] = await Promise.all([
     variantIds.length
       ? db
-          .select({
-            id: productvariantattributes.id,
-            productVariantId: productvariantattributes.productVariantId,
-            variantValueId: productvariantattributes.variantValueId,
-            valueName: variantvalues.value,
-          })
-          .from(productvariantattributes)
-          .innerJoin(variantvalues, eq(productvariantattributes.variantValueId, variantvalues.id))
-          .where(inArray(productvariantattributes.productVariantId, variantIds))
+        .select({
+          id: productvariantattributes.id,
+          productVariantId: productvariantattributes.productVariantId,
+          variantValueId: productvariantattributes.variantValueId,
+          valueName: variantvalues.value,
+        })
+        .from(productvariantattributes)
+        .innerJoin(variantvalues, eq(productvariantattributes.variantValueId, variantvalues.id))
+        .where(inArray(productvariantattributes.productVariantId, variantIds))
       : Promise.resolve([]),
     variantIds.length
       ? db
-          .select({
-            productVariantId: productimages.productVariantId,
-            imagePath: productimages.imagePath,
-          })
-          .from(productimages)
-          .where(inArray(productimages.productVariantId, variantIds))
+        .select({
+          productVariantId: productimages.productVariantId,
+          imagePath: productimages.imagePath,
+        })
+        .from(productimages)
+        .where(inArray(productimages.productVariantId, variantIds))
       : Promise.resolve([]),
   ]);
 
@@ -282,9 +327,9 @@ export async function getProduct(id: number) {
     const computedName =
       attrs.length > 0
         ? attrs
-            .map((a) => a.valueName)
-            .filter(Boolean)
-            .join(' / ')
+          .map((a) => a.valueName)
+          .filter(Boolean)
+          .join(' / ')
         : v.name;
     return {
       ...v,
@@ -320,15 +365,15 @@ export async function getProduct(id: number) {
   const specIds = specRows.map((s) => s.specId);
   const specFieldRows = specIds.length
     ? await db
-        .select({
-          productSpecificationId: productspecificationfields.productSpecificationId,
-          unitFieldId: productspecificationfields.unitFieldId,
-          value: productspecificationfields.value,
-          fieldName: unitfields.name,
-        })
-        .from(productspecificationfields)
-        .innerJoin(unitfields, eq(productspecificationfields.unitFieldId, unitfields.id))
-        .where(inArray(productspecificationfields.productSpecificationId, specIds))
+      .select({
+        productSpecificationId: productspecificationfields.productSpecificationId,
+        unitFieldId: productspecificationfields.unitFieldId,
+        value: productspecificationfields.value,
+        fieldName: unitfields.name,
+      })
+      .from(productspecificationfields)
+      .innerJoin(unitfields, eq(productspecificationfields.unitFieldId, unitfields.id))
+      .where(inArray(productspecificationfields.productSpecificationId, specIds))
     : [];
 
   const fieldsBySpec = new Map<

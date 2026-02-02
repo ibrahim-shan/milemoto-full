@@ -19,16 +19,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 const listCountries = (params: LocationListParams) => {
-  const query = new URLSearchParams({
-    search: params.search,
-    page: String(params.page),
-    limit: String(params.limit),
-  });
-  return authorizedGet<PaginatedResponse<CountryResponse>>(
-    `${API_BASE}/countries?${query.toString()}`,
-  );
+  const url = buildUrlWithQuery(`${API_BASE}/countries`, params);
+  return authorizedGet<PaginatedResponse<CountryResponse>>(url);
 };
 
 const listAllCountries = (includeInactive = false) => {

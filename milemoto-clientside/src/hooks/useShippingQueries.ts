@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type ShippingMethod = ShippingMethodResponse;
 export type ShippingAreaRate = ShippingAreaRateResponse;
@@ -44,14 +45,8 @@ const updateShippingMethod = ({ code, ...data }: UpdateShippingMethodDto & { cod
 
 // -- Area Rates --
 const listAreaRates = async (params: AreaRateListParams) => {
-  const query = new URLSearchParams({
-    search: params.search,
-    page: String(params.page),
-    limit: String(params.limit),
-  });
-  const data = await authorizedGet<PaginatedAreaRateResponse>(
-    `${API_BASE}/area-rates?${query.toString()}`,
-  );
+  const url = buildUrlWithQuery(`${API_BASE}/area-rates`, params);
+  const data = await authorizedGet<PaginatedAreaRateResponse>(url);
   return data;
 };
 

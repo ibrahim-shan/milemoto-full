@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 // Keys
 export const userKeys = {
@@ -24,13 +25,8 @@ export function useGetUsers(params?: GetUsersParams) {
   return useQuery({
     queryKey: userKeys.list(params),
     queryFn: async () => {
-      const query = new URLSearchParams();
-      if (params?.search) query.append('search', params.search);
-      if (params?.page) query.append('page', String(params.page));
-      if (params?.limit) query.append('limit', String(params.limit));
-
-      // Note: Backend might not handle pagination yet, but we pass params
-      return authorizedGet<UserResponse[]>(`/admin/users?${query.toString()}`);
+      const url = buildUrlWithQuery('/admin/users', params ?? {});
+      return authorizedGet<UserResponse[]>(url);
     },
   });
 }

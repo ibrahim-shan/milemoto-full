@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedGet, authorizedPost } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type StockLevelListQuery = {
   page?: number;
@@ -46,19 +47,7 @@ export function useGetStockLevels(params: StockLevelListQuery, options?: QueryOp
     queryKey: stockKeys.levelList(params),
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.productVariantId)
-        searchParams.append('productVariantId', params.productVariantId.toString());
-      if (params.productId) searchParams.append('productId', params.productId.toString());
-      if (params.stockLocationId)
-        searchParams.append('stockLocationId', params.stockLocationId.toString());
-
-      const queryString = searchParams.toString();
-      const url = `/admin/stock${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/stock', params);
       const data = await authorizedGet<PaginatedStockLevelResponse>(url);
       return data;
     },
@@ -69,19 +58,7 @@ export function useGetStockMovements(params: StockMovementListQuery) {
   return useQuery({
     queryKey: stockKeys.movementList(params),
     queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.search) searchParams.append('search', params.search);
-      if (params.productVariantId)
-        searchParams.append('productVariantId', params.productVariantId.toString());
-      if (params.stockLocationId)
-        searchParams.append('stockLocationId', params.stockLocationId.toString());
-      if (params.type) searchParams.append('type', params.type);
-
-      const queryString = searchParams.toString();
-      const url = `/admin/stock/movements${queryString ? `?${queryString}` : ''}`;
-
+      const url = buildUrlWithQuery('/admin/stock/movements', params);
       const data = await authorizedGet<PaginatedStockMovementResponse>(url);
       return data;
     },

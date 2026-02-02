@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 // ==== Query Keys & API Paths ====================================
 
@@ -33,15 +34,8 @@ type QueryOptions = {
 // ==== Fetch Functions ===========================================
 
 const listCurrencies = async (params: CurrencyListParams) => {
-  const query = new URLSearchParams({
-    search: params.search,
-    page: String(params.page),
-    limit: String(params.limit),
-  });
-  if (params.status) {
-    query.set('status', params.status);
-  }
-  const data = await authorizedGet<PaginatedCurrencyResponse>(`${API_BASE}?${query.toString()}`);
+  const url = buildUrlWithQuery(API_BASE, params);
+  const data = await authorizedGet<PaginatedCurrencyResponse>(url);
   return data;
 };
 

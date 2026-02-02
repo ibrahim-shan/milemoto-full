@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { authorizedDel, authorizedGet, authorizedPost, authorizedPut } from '@/lib/api';
+import { buildUrlWithQuery } from '@/lib/queryString';
 
 export type { CreateRoleDto, UpdateRoleDto };
 export type Role = RoleResponse;
@@ -29,12 +30,8 @@ export function useGetRoles(params?: GetRolesParams) {
   return useQuery({
     queryKey: rbacKeys.roles(params),
     queryFn: async () => {
-      const query = new URLSearchParams();
-      if (params?.search) query.append('search', params.search);
-      // We are not implementing backend pagination for roles yet, but we accept the params to satisfy the UI.
-      // Search IS implemented.
-
-      return authorizedGet<RoleResponse[]>(`/admin/rbac/roles?${query.toString()}`);
+      const url = buildUrlWithQuery('/admin/rbac/roles', params ?? {});
+      return authorizedGet<RoleResponse[]>(url);
     },
   });
 }
