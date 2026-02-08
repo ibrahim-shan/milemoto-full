@@ -113,9 +113,13 @@
   - Tables: `stocklevels`, `stockmovements`, `productvariants`
   - **Done:** All have indexes. Added missing `idxVariantProduct` on `productId`
 
-- [ ] **Consider Full-Text Search for Product Search**
+- [x] **Consider Full-Text Search for Product Search** ✅
   - Issue: `LIKE '%term%'` doesn't use indexes
   - Fix: MySQL FULLTEXT index or external search (Elasticsearch/Meilisearch)
+  - **Done:** Added FULLTEXT indexes via migration `20260202_fulltext_indexes`:
+    - `ftProductName` on `products(name)`
+    - `ftVariantNameSku` on `productvariants(name, sku)`
+  - **Done:** Updated `product/read.ts` to use `MATCH AGAINST` for 3+ char queries, falls back to LIKE for shorter queries
 
 ---
 
@@ -134,9 +138,9 @@ After each fix:
 | Priority | Total | Done | Remaining |
 |----------|-------|------|-----------|
 | High     | 7     | 6    | 1         |
-| Medium   | 5     | 1    | 4         |
-| Low      | 6     | 0    | 6         |
-| **Total**| **18**| **7**| **11**    |
+| Medium   | 5     | 5    | 0         |
+| Low      | 6     | 6    | 0         |
+| **Total**| **18**| **17**| **1**    |
 
 ---
 

@@ -23,6 +23,7 @@ import {
 } from '../../routes/helpers/auth.helpers.js';
 import { z } from 'zod';
 import { toUserId } from './shared.js';
+import { logAuditEvent } from '../auditLog.service.js';
 
 function normalizeLoginIdentifier(value: string) {
   const raw = value.trim();
@@ -67,8 +68,8 @@ export async function login(data: z.infer<typeof Login>, req: Request, res: Resp
     lookup.type === 'email'
       ? await baseQuery.where(eq(users.email, lookup.value)).limit(1)
       : await baseQuery
-        .where(or(...lookup.candidates.map((phone) => eq(users.phone, phone))))
-        .limit(1);
+          .where(or(...lookup.candidates.map((phone) => eq(users.phone, phone))))
+          .limit(1);
   if (!u) throw invalid();
   if (u.status !== 'active') {
     logger.warn(
@@ -82,7 +83,18 @@ export async function login(data: z.infer<typeof Login>, req: Request, res: Resp
   }
 
   const ok = await argon2.verify(u.passwordHash, password);
-  if (!ok) throw invalid();
+  if (!ok) {
+    // Audit: Login failed
+    void logAuditEvent({
+      userId: 0, // Unknown user when login fails
+      action: 'login_failed',
+      entityType: 'auth',
+      metadata: { identifier: sha256(lookup.value), reason: 'invalid_password' },
+      ipAddress: req.ip ?? undefined,
+      userAgent: req.get('user-agent') ?? undefined,
+    });
+    throw invalid();
+  }
 
   if (!u.emailVerifiedAt) {
     logger.info(
@@ -189,6 +201,17 @@ export async function login(data: z.infer<typeof Login>, req: Request, res: Resp
   setRefreshCookie(res, refresh, { remember: Boolean(remember), maxAgeSec: ttlSec });
   setSessionInfoCookie(res, { role, expiresAt: exp2, remember: Boolean(remember) });
   const access = signAccess({ sub: String(u.id), role });
+
+  // Audit: Successful login
+  void logAuditEvent({
+    userId: Number(u.id),
+    action: 'login',
+    entityType: 'auth',
+    metadata: { role, remember: Boolean(remember) },
+    ipAddress: req.ip ?? undefined,
+    userAgent: req.get('user-agent') ?? undefined,
+  });
+
   return {
     accessToken: access,
     user: {
@@ -279,15 +302,27 @@ export async function refresh(req: Request, res: Response) {
   setSessionInfoCookie(res, { role, expiresAt: exp, remember });
   const access = signAccess({ sub: userId, role });
 
+  // Audit: Token refresh
+  void logAuditEvent({
+    userId: userIdNum,
+    action: 'refresh',
+    entityType: 'auth',
+    metadata: { newSessionId: newSid },
+    ipAddress: req.ip ?? undefined,
+    userAgent: req.get('user-agent') ?? undefined,
+  });
+
   return { accessToken: access } as RefreshResponseDto;
 }
 
 export async function logout(req: Request, res: Response) {
+  let userId: number | undefined;
   try {
     const token = req.cookies?.[env.REFRESH_COOKIE_NAME];
     if (token) {
       try {
-        const { sid } = verifyRefresh(token);
+        const { sid, sub } = verifyRefresh(token);
+        userId = toUserId(sub);
         await db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.id, sid));
       } catch {
         /* ignore */
@@ -300,6 +335,17 @@ export async function logout(req: Request, res: Response) {
       secure: env.NODE_ENV === 'production',
     });
     clearSessionInfoCookie(res);
+
+    // Audit: Logout
+    if (userId) {
+      void logAuditEvent({
+        userId,
+        action: 'logout',
+        entityType: 'auth',
+        ipAddress: req.ip ?? undefined,
+        userAgent: req.get('user-agent') ?? undefined,
+      });
+    }
   } catch {
     throw httpError(401, 'InvalidToken', 'Invalid token');
   }
@@ -326,7 +372,7 @@ export async function logoutAll(userId: string, res: Response) {
     sameSite: 'lax',
     secure: env.NODE_ENV === 'production',
   });
-  clearSessionInfoCookie(res);  
+  clearSessionInfoCookie(res);
 
   logger.info({ code: 'UserLogoutAll', userId }, 'User requested logout on all devices');
 }

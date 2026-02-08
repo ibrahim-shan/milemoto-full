@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { requirePermission } from '../../middleware/authz.js';
 import { httpError } from '../../utils/error.js';
 import {
@@ -14,8 +14,18 @@ import {
   TransferInput,
 } from './helpers/stock.helpers.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
+import type { AuditContext } from '../../services/adminUsers/write.js';
 
 const router = Router();
+
+// Helper to extract audit context from request
+function getAuditContext(req: Request): AuditContext {
+  return {
+    userId: Number(req.user?.id ?? 0),
+    ipAddress: req.ip ?? undefined,
+    userAgent: req.get('user-agent') ?? undefined,
+  };
+}
 
 router.get(
   '/',
@@ -45,7 +55,7 @@ router.post(
     if (!req.user) {
       throw httpError(401, 'Unauthorized', 'Authentication required');
     }
-    const result = await createStockAdjustment(body, Number(req.user.id));
+    const result = await createStockAdjustment(body, Number(req.user.id), getAuditContext(req));
     res.status(201).json(result);
   })
 );
@@ -58,7 +68,7 @@ router.post(
     if (!req.user) {
       throw httpError(401, 'Unauthorized', 'Authentication required');
     }
-    const result = await createStockTransfer(body, Number(req.user.id));
+    const result = await createStockTransfer(body, Number(req.user.id), getAuditContext(req));
     res.status(201).json(result);
   })
 );

@@ -1,10 +1,20 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { requirePermission } from '../../middleware/authz.js';
 import { CreateRoleSchema, UpdateRoleSchema } from './helpers/rbac.helpers.js';
 import * as rbacService from '../../services/rbac.service.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
+import type { AuditContext } from '../../services/adminUsers/write.js';
 
 const router = Router();
+
+// Helper to extract audit context from request
+function getAuditContext(req: Request): AuditContext {
+  return {
+    userId: Number(req.user?.id ?? 0),
+    ipAddress: req.ip ?? undefined,
+    userAgent: req.get('user-agent') ?? undefined,
+  };
+}
 
 // GET /api/v1/admin/rbac/permissions
 router.get(
@@ -43,7 +53,7 @@ router.post(
   requirePermission('rbac.manage'),
   asyncHandler(async (req, res) => {
     const body = CreateRoleSchema.parse(req.body);
-    const role = await rbacService.createRole(body);
+    const role = await rbacService.createRole(body, getAuditContext(req));
     res.status(201).json(role);
   })
 );
@@ -54,7 +64,7 @@ router.put(
   requirePermission('rbac.manage'),
   asyncHandler(async (req, res) => {
     const body = UpdateRoleSchema.parse(req.body);
-    const role = await rbacService.updateRole(Number(req.params.id), body);
+    const role = await rbacService.updateRole(Number(req.params.id), body, getAuditContext(req));
     res.json(role);
   })
 );
@@ -65,7 +75,7 @@ router.delete(
   requirePermission('rbac.manage'),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    await rbacService.deleteRole(id);
+    await rbacService.deleteRole(id, getAuditContext(req));
     res.json({ success: true });
   })
 );

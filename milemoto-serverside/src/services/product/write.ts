@@ -559,7 +559,7 @@ export async function deleteProduct(id: number) {
   if (hasReferences) {
     return archiveProduct(
       id,
-      'Product has related records and was marked inactive instead of deleted.',
+      'Product has related records and was marked inactive instead of deleted.'
     );
   }
 
@@ -595,7 +595,7 @@ export async function deleteProduct(id: number) {
     if (isForeignKeyConstraintError(error)) {
       return archiveProduct(
         id,
-        'Product has related records and was marked inactive instead of deleted.',
+        'Product has related records and was marked inactive instead of deleted.'
       );
     }
     throw error;

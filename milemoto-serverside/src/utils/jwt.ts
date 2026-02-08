@@ -37,11 +37,7 @@ function verifyWithFallback<T>(token: string, currentSecret: string, oldSecret?:
 }
 
 export function verifyAccess(token: string): AccessPayload {
-  return verifyWithFallback<AccessPayload>(
-    token,
-    env.JWT_ACCESS_SECRET,
-    env.JWT_ACCESS_SECRET_OLD
-  );
+  return verifyWithFallback<AccessPayload>(token, env.JWT_ACCESS_SECRET, env.JWT_ACCESS_SECRET_OLD);
 }
 
 export function verifyRefresh(token: string): RefreshPayload {

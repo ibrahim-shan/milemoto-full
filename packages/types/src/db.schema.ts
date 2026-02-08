@@ -1811,3 +1811,37 @@ export const warranties = mysqlTable(
   },
   (table) => [uniqueIndex("uniqueName").on(table.name)]
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit Logs - Track sensitive admin operations
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const auditlogs = mysqlTable(
+  "auditlogs",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    userId: int().notNull(),
+    action: mysqlEnum(["create", "update", "delete", "login", "login_failed", "logout", "refresh", "password_change", "password_reset"]).notNull(),
+    entityType: varchar({ length: 50 }).notNull(),
+    entityId: varchar({ length: 50 }),
+    metadata: longtext(),
+    ipAddress: varchar({ length: 45 }),
+    userAgent: varchar({ length: 512 }),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idxUserId").on(table.userId),
+    index("idxEntityType").on(table.entityType),
+    index("idxCreatedAt").on(table.createdAt),
+    index("idxEntityTypeId").on(table.entityType, table.entityId),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "auditlogs_userId_fk",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+  ]
+);

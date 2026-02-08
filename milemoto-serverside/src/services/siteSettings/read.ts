@@ -32,7 +32,7 @@ export async function getStoreCurrencySettings(): Promise<StoreCurrencySettingsD
     currencyPosition:
       (currencyPosition as StoreCurrencySettingsDto['currencyPosition']) || 'before',
     decimalDigits: decimalDigits ? parseInt(decimalDigits) : 2,
-    copyrightText: copyrightText || 'Ac 2025 MileMoto. All rights reserved.',
+    copyrightText: copyrightText || '2026 MileMoto. All rights reserved.',
   };
 }
 

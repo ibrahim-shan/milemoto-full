@@ -23,22 +23,18 @@ export async function deleteImageFromStorage(url: string) {
 export function deleteImagesWithLogging(urls: string[], context?: string): void {
   if (urls.length === 0) return;
 
-  void Promise.allSettled(urls.map((url) => deleteImageFromStorage(url))).then(
-    (results) => {
-      const failures = results.filter(
-        (r): r is PromiseRejectedResult => r.status === 'rejected'
+  void Promise.allSettled(urls.map((url) => deleteImageFromStorage(url))).then((results) => {
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failures.length > 0) {
+      logger.error(
+        {
+          failureCount: failures.length,
+          totalCount: urls.length,
+          context,
+          errors: failures.map((f) => String(f.reason)),
+        },
+        'Failed to delete some product images'
       );
-      if (failures.length > 0) {
-        logger.error(
-          {
-            failureCount: failures.length,
-            totalCount: urls.length,
-            context,
-            errors: failures.map((f) => String(f.reason)),
-          },
-          'Failed to delete some product images'
-        );
-      }
     }
-  );
+  });
 }

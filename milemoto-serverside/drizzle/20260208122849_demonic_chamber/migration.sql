@@ -1,3 +1,15 @@
+CREATE TABLE `auditlogs` (
+	`id` bigint unsigned AUTO_INCREMENT PRIMARY KEY,
+	`userId` int NOT NULL,
+	`action` enum('create','update','delete','login','login_failed','logout','refresh','password_change','password_reset') NOT NULL,
+	`entityType` varchar(50) NOT NULL,
+	`entityId` varchar(50),
+	`metadata` longtext,
+	`ipAddress` varchar(45),
+	`userAgent` varchar(512),
+	`createdAt` timestamp NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+);
+--> statement-breakpoint
 CREATE TABLE `brands` (
 	`id` int AUTO_INCREMENT PRIMARY KEY,
 	`name` varchar(255) NOT NULL,
@@ -532,6 +544,7 @@ CREATE TABLE `stockmovements` (
 	`type` enum('purchase_receipt','purchase_return','sale_shipment','adjustment','transfer_in','transfer_out') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
 	`referenceType` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
 	`referenceId` bigint unsigned,
+	`transferId` varchar(36),
 	`note` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
 	`createdAt` timestamp NOT NULL DEFAULT (CURRENT_TIMESTAMP),
 	`updatedAt` timestamp NOT NULL DEFAULT (CURRENT_TIMESTAMP)
@@ -656,6 +669,10 @@ CREATE TABLE `warranties` (
 	CONSTRAINT `uniqueName` UNIQUE INDEX(`name`)
 );
 --> statement-breakpoint
+CREATE INDEX `idxUserId` ON `auditlogs` (`userId`);--> statement-breakpoint
+CREATE INDEX `idxEntityType` ON `auditlogs` (`entityType`);--> statement-breakpoint
+CREATE INDEX `idxCreatedAt` ON `auditlogs` (`createdAt`);--> statement-breakpoint
+CREATE INDEX `idxEntityTypeId` ON `auditlogs` (`entityType`,`entityId`);--> statement-breakpoint
 CREATE INDEX `idxSlug` ON `brands` (`slug`);--> statement-breakpoint
 CREATE INDEX `idxStatus` ON `brands` (`status`);--> statement-breakpoint
 CREATE INDEX `idxParentId` ON `categories` (`parentId`);--> statement-breakpoint
@@ -686,6 +703,7 @@ CREATE INDEX `idxPwActive` ON `passwordresets` (`expiresAt`,`userId`,`usedAt`);-
 CREATE INDEX `idxPwUser` ON `passwordresets` (`userId`);--> statement-breakpoint
 CREATE INDEX `idxStatus` ON `paymentmethods` (`status`);--> statement-breakpoint
 CREATE INDEX `idxPhoneVerifUser` ON `phoneverifications` (`userId`);--> statement-breakpoint
+CREATE INDEX `idxVariantProduct` ON `productvariants` (`productId`);--> statement-breakpoint
 CREATE INDEX `idxPurchaseOrderLinesPo` ON `purchaseorderlines` (`purchaseOrderId`);--> statement-breakpoint
 CREATE INDEX `idxPurchaseOrderLinesVariant` ON `purchaseorderlines` (`productVariantId`);--> statement-breakpoint
 CREATE INDEX `idxPurchaseOrdersCreatedAt` ON `purchaseorders` (`createdAt`);--> statement-breakpoint
@@ -708,6 +726,7 @@ CREATE INDEX `idxStockLevelsLocation` ON `stocklevels` (`stockLocationId`);--> s
 CREATE INDEX `idxStockMovementsLocation` ON `stockmovements` (`stockLocationId`);--> statement-breakpoint
 CREATE INDEX `idxStockMovementsVariant` ON `stockmovements` (`productVariantId`);--> statement-breakpoint
 CREATE INDEX `idxStockMovementsActor` ON `stockmovements` (`performedByUserId`);--> statement-breakpoint
+CREATE INDEX `idxStockMovementsTransfer` ON `stockmovements` (`transferId`);--> statement-breakpoint
 CREATE INDEX `idxTaxesCountryId` ON `taxes` (`countryId`);--> statement-breakpoint
 CREATE INDEX `idxTrustedExpires` ON `trusteddevices` (`expiresAt`);--> statement-breakpoint
 CREATE INDEX `idxTrustedRevoked` ON `trusteddevices` (`revokedAt`);--> statement-breakpoint
@@ -718,6 +737,7 @@ CREATE INDEX `idxName` ON `variants` (`name`);--> statement-breakpoint
 CREATE INDEX `idxStatus` ON `variants` (`status`);--> statement-breakpoint
 CREATE INDEX `idxStatus` ON `variantvalues` (`status`);--> statement-breakpoint
 CREATE INDEX `idxVariantId` ON `variantvalues` (`variantId`);--> statement-breakpoint
+ALTER TABLE `auditlogs` ADD CONSTRAINT `auditlogs_userId_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE RESTRICT;--> statement-breakpoint
 ALTER TABLE `categories` ADD CONSTRAINT `categories_ibfk_1` FOREIGN KEY (`parentId`) REFERENCES `categories`(`id`) ON DELETE CASCADE ON UPDATE RESTRICT;--> statement-breakpoint
 ALTER TABLE `cities` ADD CONSTRAINT `fkCitiesStateId` FOREIGN KEY (`stateId`) REFERENCES `states`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;--> statement-breakpoint
 ALTER TABLE `collection_products` ADD CONSTRAINT `fkCollProdCollection` FOREIGN KEY (`collectionId`) REFERENCES `collections`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;--> statement-breakpoint

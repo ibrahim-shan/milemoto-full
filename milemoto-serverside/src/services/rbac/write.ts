@@ -5,8 +5,10 @@ import { db } from '../../db/drizzle.js';
 import { httpError } from '../../utils/error.js';
 import { isDuplicateEntryError } from '../../utils/dbErrors.js';
 import { getRole } from './read.js';
+import { logAuditEvent } from '../auditLog.service.js';
+import type { AuditContext } from '../adminUsers/write.js';
 
-export async function createRole(data: CreateRoleDto) {
+export async function createRole(data: CreateRoleDto, audit?: AuditContext) {
   try {
     const uniquePermissionIds = Array.from(new Set(data.permissionIds ?? []));
     const payload: CreateRoleDto = { ...data, permissionIds: uniquePermissionIds };
@@ -46,6 +48,19 @@ export async function createRole(data: CreateRoleDto) {
       return roleId;
     });
 
+    // Audit log
+    if (audit) {
+      void logAuditEvent({
+        userId: audit.userId,
+        action: 'create',
+        entityType: 'roles',
+        entityId: String(roleId),
+        metadata: { name: payload.name, permissionIds: uniquePermissionIds },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
     return getRole(roleId);
   } catch (err) {
     if (isDuplicateEntryError(err)) {
@@ -59,7 +74,7 @@ export async function createRole(data: CreateRoleDto) {
   }
 }
 
-export async function updateRole(id: number, data: UpdateRoleDto) {
+export async function updateRole(id: number, data: UpdateRoleDto, audit?: AuditContext) {
   const current = await getRole(id);
 
   if (current.isSystem) {
@@ -100,6 +115,19 @@ export async function updateRole(id: number, data: UpdateRoleDto) {
       }
     });
 
+    // Audit log
+    if (audit) {
+      void logAuditEvent({
+        userId: audit.userId,
+        action: 'update',
+        entityType: 'roles',
+        entityId: String(id),
+        metadata: { before: { name: current.name }, after: data },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
     return getRole(id);
   } catch (err) {
     if (isDuplicateEntryError(err)) {
@@ -113,7 +141,7 @@ export async function updateRole(id: number, data: UpdateRoleDto) {
   }
 }
 
-export async function deleteRole(id: number) {
+export async function deleteRole(id: number, audit?: AuditContext) {
   const role = await getRole(id);
   if (role.isSystem) {
     throw httpError(403, 'Forbidden', 'Cannot delete system role');
@@ -121,5 +149,19 @@ export async function deleteRole(id: number) {
 
   await db.delete(rolepermissions).where(eq(rolepermissions.roleId, id));
   await db.delete(roles).where(eq(roles.id, id));
+
+  // Audit log
+  if (audit) {
+    void logAuditEvent({
+      userId: audit.userId,
+      action: 'delete',
+      entityType: 'roles',
+      entityId: String(id),
+      metadata: { deleted: { name: role.name } },
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+  }
+
   return { success: true };
 }

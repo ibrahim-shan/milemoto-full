@@ -65,7 +65,7 @@ export function setSessionInfoCookie(
   if (opts.remember) {
     res.cookie('mm_session_info', value, {
       ...base,
-      maxAge: Math.floor((opts.expiresAt.getTime() - Date.now())),
+      maxAge: Math.floor(opts.expiresAt.getTime() - Date.now()),
     });
   } else {
     res.cookie('mm_session_info', value, base);

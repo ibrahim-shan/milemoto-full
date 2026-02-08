@@ -30,6 +30,7 @@ import paymentMethodAdmin from './admin/paymentMethod.route.js';
 import inboundShippingMethodAdmin from './admin/inboundShippingMethod.route.js';
 import rbacAdmin from './admin/rbac.route.js';
 import usersAdmin from './admin/users.route.js';
+import auditLogAdmin from './admin/auditLog.route.js';
 
 export const admin = Router();
 admin.use(requireAuth, requireRole('admin')); // all routes below require admin
@@ -61,6 +62,7 @@ admin.use('/payment-methods', paymentMethodAdmin);
 admin.use('/inbound-shipping-methods', inboundShippingMethodAdmin);
 admin.use('/rbac', rbacAdmin);
 admin.use('/users', usersAdmin);
+admin.use('/audit-logs', auditLogAdmin);
 
 admin.get('/ping', (_req, res) => {
   res.json({ ok: true, scope: 'admin' });

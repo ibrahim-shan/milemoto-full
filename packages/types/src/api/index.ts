@@ -30,3 +30,4 @@ export * from "../stock.types.js";
 export * from "../rbac.types.js";
 export * from "../rbac.permissions.js";
 export * from "../zod.helpers.js";
+export * from "../auditLog.types.js";

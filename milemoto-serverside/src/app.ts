@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { api } from './routes/index.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requestTimeout } from './middleware/requestTimeout.js';
 import { logger } from './utils/logger.js';
 import { httpError } from './utils/error.js';
 import { env } from './config/env.js';
@@ -82,6 +83,9 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (_req, res) => res.json({ name: 'MileMoto API', version: '0.1.0' }));
+
+// Global request timeout (30 seconds)
+app.use(requestTimeout(30_000));
 
 app.use('/api', api);
 

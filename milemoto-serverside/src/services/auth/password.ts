@@ -10,6 +10,7 @@ import { dbNow } from '../../db/time.js';
 import { revokeAllTrustedDevices } from '../../routes/helpers/auth.helpers.js';
 import { toUserId } from './shared.js';
 import { sendSmsMessage } from '../smsGateway.service.js';
+import { logAuditEvent } from '../auditLog.service.js';
 
 export async function changePassword(userId: string, oldPassword: string, newPassword: string) {
   const userIdNum = toUserId(userId);
@@ -43,6 +44,13 @@ export async function changePassword(userId: string, oldPassword: string, newPas
 
   await db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.userId, userIdNum));
   await revokeAllTrustedDevices(String(userId));
+
+  // Audit: Password changed
+  void logAuditEvent({
+    userId: userIdNum,
+    action: 'password_change',
+    entityType: 'auth',
+  });
 }
 
 export async function requestPasswordReset(email: string) {
@@ -189,6 +197,13 @@ export async function resetPasswordWithToken(token: string, newPassword: string)
       .where(eq(sessions.userId, Number(r.userId)));
   });
   await revokeAllTrustedDevices(String(r.userId));
+
+  // Audit: Password reset completed
+  void logAuditEvent({
+    userId: Number(r.userId),
+    action: 'password_reset',
+    entityType: 'auth',
+  });
 
   return { ok: true, email: userEmail };
 }

@@ -11,8 +11,14 @@ import type { CreateStockAdjustmentDto, CreateStockTransferDto } from '@milemoto
 import { db } from '../../db/drizzle.js';
 import { httpError } from '../../utils/error.js';
 import { firstRow, mapStockMovementRow } from './shared.js';
+import { logAuditEvent } from '../auditLog.service.js';
+import type { AuditContext } from '../adminUsers/write.js';
 
-export async function createStockAdjustment(data: CreateStockAdjustmentDto, userId: number) {
+export async function createStockAdjustment(
+  data: CreateStockAdjustmentDto,
+  userId: number,
+  audit?: AuditContext
+) {
   const movementId = await db.transaction(async (tx) => {
     const variant = await tx
       .select({ id: productvariants.id })
@@ -92,6 +98,25 @@ export async function createStockAdjustment(data: CreateStockAdjustmentDto, user
     return movementId;
   });
 
+  // Audit log
+  if (audit) {
+    void logAuditEvent({
+      userId: audit.userId,
+      action: 'create',
+      entityType: 'stock',
+      entityId: String(movementId),
+      metadata: {
+        type: 'adjustment',
+        variantId: data.productVariantId,
+        locationId: data.stockLocationId,
+        quantity: data.quantity,
+        note: data.note,
+      },
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+  }
+
   const [movementRow] = await db
     .select({
       id: stockmovements.id,
@@ -124,7 +149,11 @@ export async function createStockAdjustment(data: CreateStockAdjustmentDto, user
   return mapStockMovementRow(movementRow);
 }
 
-export async function createStockTransfer(data: CreateStockTransferDto, userId: number) {
+export async function createStockTransfer(
+  data: CreateStockTransferDto,
+  userId: number,
+  audit?: AuditContext
+) {
   const movementId = await db.transaction(async (tx) => {
     if (data.fromLocationId === data.toLocationId) {
       throw httpError(400, 'BadRequest', 'From and to locations must be different');
@@ -261,6 +290,26 @@ export async function createStockTransfer(data: CreateStockTransferDto, userId: 
 
     return movementId;
   });
+
+  // Audit log
+  if (audit) {
+    void logAuditEvent({
+      userId: audit.userId,
+      action: 'create',
+      entityType: 'stock',
+      entityId: String(movementId),
+      metadata: {
+        type: 'transfer',
+        variantId: data.productVariantId,
+        fromLocationId: data.fromLocationId,
+        toLocationId: data.toLocationId,
+        quantity: data.quantity,
+        note: data.note,
+      },
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+  }
 
   const [movementRow] = await db
     .select({
