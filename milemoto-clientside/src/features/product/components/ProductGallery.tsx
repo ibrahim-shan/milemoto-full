@@ -6,11 +6,22 @@ import Image from 'next/image';
 
 import { cn } from '@/lib/utils';
 
-type Props = { images: { src: string; alt: string }[] };
+type Props = {
+  images: { src: string; alt: string }[];
+  /** When set, the gallery will jump to this index (controlled externally) */
+  activeIndex?: number | undefined;
+};
 
-export function ProductGallery({ images }: Props) {
+export function ProductGallery({ images, activeIndex }: Props) {
   const [idx, setIdx] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync with external activeIndex when it changes
+  useEffect(() => {
+    if (activeIndex !== undefined && activeIndex >= 0 && activeIndex < images.length) {
+      setIdx(activeIndex);
+    }
+  }, [activeIndex, images.length]);
 
   // derive a safe index instead of setState in an effect
   const maxIndex = Math.max(0, images.length - 1);

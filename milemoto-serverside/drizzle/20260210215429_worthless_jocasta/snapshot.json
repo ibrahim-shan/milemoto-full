@@ -1,9 +1,9 @@
 {
   "version": "6",
   "dialect": "mysql",
-  "id": "324ca438-929c-48da-8a55-51916fa3eb61",
+  "id": "750a4c29-fd98-49e5-b5eb-98a7246f6e7a",
   "prevIds": [
-    "00000000-0000-0000-0000-000000000000"
+    "324ca438-929c-48da-8a55-51916fa3eb61"
   ],
   "ddl": [
     {
@@ -12,6 +12,14 @@
     },
     {
       "name": "brands",
+      "entityType": "tables"
+    },
+    {
+      "name": "cartitems",
+      "entityType": "tables"
+    },
+    {
+      "name": "carts",
       "entityType": "tables"
     },
     {
@@ -453,6 +461,132 @@
       "name": "updatedAt",
       "entityType": "columns",
       "table": "brands"
+    },
+    {
+      "type": "bigint unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "cartitems"
+    },
+    {
+      "type": "bigint unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "cartId",
+      "entityType": "columns",
+      "table": "cartitems"
+    },
+    {
+      "type": "bigint unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "productVariantId",
+      "entityType": "columns",
+      "table": "cartitems"
+    },
+    {
+      "type": "int",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "1",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "quantity",
+      "entityType": "columns",
+      "table": "cartitems"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "addedAt",
+      "entityType": "columns",
+      "table": "cartitems"
+    },
+    {
+      "type": "bigint unsigned",
+      "notNull": true,
+      "autoIncrement": true,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "carts"
+    },
+    {
+      "type": "bigint unsigned",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": null,
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "userId",
+      "entityType": "columns",
+      "table": "carts"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "table": "carts"
+    },
+    {
+      "type": "timestamp",
+      "notNull": true,
+      "autoIncrement": false,
+      "default": "(CURRENT_TIMESTAMP)",
+      "onUpdateNow": false,
+      "onUpdateNowFsp": null,
+      "charSet": null,
+      "collation": null,
+      "generated": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "table": "carts"
     },
     {
       "type": "int",
@@ -6677,6 +6811,22 @@
         "id"
       ],
       "name": "PRIMARY",
+      "table": "cartitems",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "name": "PRIMARY",
+      "table": "carts",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "name": "PRIMARY",
       "table": "categories",
       "entityType": "pks"
     },
@@ -7227,6 +7377,74 @@
       "name": "slug",
       "entityType": "indexes",
       "table": "brands"
+    },
+    {
+      "columns": [
+        {
+          "value": "cartId",
+          "isExpression": false
+        },
+        {
+          "value": "productVariantId",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uniqCartItemVariant",
+      "entityType": "indexes",
+      "table": "cartitems"
+    },
+    {
+      "columns": [
+        {
+          "value": "cartId",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idxCartItemsCart",
+      "entityType": "indexes",
+      "table": "cartitems"
+    },
+    {
+      "columns": [
+        {
+          "value": "productVariantId",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "idxCartItemsVariant",
+      "entityType": "indexes",
+      "table": "cartitems"
+    },
+    {
+      "columns": [
+        {
+          "value": "userId",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "using": null,
+      "algorithm": null,
+      "lock": null,
+      "nameExplicit": true,
+      "name": "uniqCartUser",
+      "entityType": "indexes",
+      "table": "carts"
     },
     {
       "columns": [
@@ -8982,6 +9200,51 @@
       "name": "auditlogs_userId_fk",
       "entityType": "fks",
       "table": "auditlogs"
+    },
+    {
+      "columns": [
+        "cartId"
+      ],
+      "tableTo": "carts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fkCartItemsCart",
+      "entityType": "fks",
+      "table": "cartitems"
+    },
+    {
+      "columns": [
+        "productVariantId"
+      ],
+      "tableTo": "productvariants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fkCartItemsVariant",
+      "entityType": "fks",
+      "table": "cartitems"
+    },
+    {
+      "columns": [
+        "userId"
+      ],
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": true,
+      "name": "fkCartsUser",
+      "entityType": "fks",
+      "table": "carts"
     },
     {
       "columns": [

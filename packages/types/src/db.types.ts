@@ -489,3 +489,15 @@ export const insertWarrantySchema = createInsertSchema(schema.warranties);
 export const selectWarrantySchema = createSelectSchema(schema.warranties);
 export type Warranty = InferSelectModel<typeof schema.warranties>;
 export type NewWarranty = InferInsertModel<typeof schema.warranties>;
+
+// Carts
+export const insertCartSchema = createInsertSchema(schema.carts);
+export const selectCartSchema = createSelectSchema(schema.carts);
+export type Cart = InferSelectModel<typeof schema.carts>;
+export type NewCart = InferInsertModel<typeof schema.carts>;
+
+// Cart Items
+export const insertCartItemSchema = createInsertSchema(schema.cartitems);
+export const selectCartItemSchema = createSelectSchema(schema.cartitems);
+export type CartItem = InferSelectModel<typeof schema.cartitems>;
+export type NewCartItem = InferInsertModel<typeof schema.cartitems>;

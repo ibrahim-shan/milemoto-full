@@ -101,7 +101,10 @@ export type UpdateProductDto = z.infer<typeof UpdateProduct>;
 export type ProductVariantDto = z.infer<typeof ProductVariantSchema>;
 
 export const ProductListQuery = PaginationSchema.extend({
-  status: z.enum(["active", "inactive"]).optional(),
+  status: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.enum(["active", "inactive"]).optional(),
+  ),
   categoryId: z
     .union([z.coerce.number().int().positive(), z.array(z.coerce.number().int().positive())])
     .optional(),
@@ -140,7 +143,7 @@ export interface ProductSpecificationResponse
 }
 
 export interface ProductVariantAttributeResponse
-  extends ApiModel<ProductVariantAttribute> {}
+  extends ApiModel<ProductVariantAttribute> { }
 
 export interface ProductVariantResponse extends ApiModel<ProductVariant> {
   price: number;
@@ -165,7 +168,7 @@ export interface ProductResponse extends ApiModel<Product> {
   warrantyName?: string;
 }
 
-export interface ProductImageResponse extends ApiModel<ProductImage> {}
+export interface ProductImageResponse extends ApiModel<ProductImage> { }
 
 export interface PaginatedProductResponse
   extends PaginatedResponse<ProductResponse> {

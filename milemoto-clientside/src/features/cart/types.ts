@@ -5,6 +5,7 @@ export type CartItem = {
   imageSrc: string;
   priceMinor: number;
   qty: number;
+  productVariantId?: number | undefined;
 };
 
 export type AddCartItemInput = {
@@ -13,4 +14,5 @@ export type AddCartItemInput = {
   imageSrc: string;
   priceMinor: number;
   qty?: number;
+  productVariantId?: number | undefined;
 };

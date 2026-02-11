@@ -8,7 +8,7 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 
-export function PriceFilter() {
+export function PriceFilter({ onApply }: { onApply?: (min: number, max: number) => void }) {
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(1000);
   const [error, setError] = useState('');
@@ -196,6 +196,7 @@ export function PriceFilter() {
         size="md"
         fullWidth
         disabled={invalid}
+        onClick={() => onApply?.(minPrice, maxPrice)}
       >
         Apply
       </Button>

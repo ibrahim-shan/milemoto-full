@@ -1813,6 +1813,66 @@ export const warranties = mysqlTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Shopping Cart - Server-side cart for authenticated users
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const carts = mysqlTable(
+  "carts",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    userId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniqCartUser").on(table.userId),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "fkCartsUser",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+  ]
+);
+
+export const cartitems = mysqlTable(
+  "cartitems",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    cartId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    productVariantId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    quantity: int().default(1).notNull(),
+    addedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniqCartItemVariant").on(table.cartId, table.productVariantId),
+    index("idxCartItemsCart").on(table.cartId),
+    index("idxCartItemsVariant").on(table.productVariantId),
+    foreignKey({
+      columns: [table.cartId],
+      foreignColumns: [carts.id],
+      name: "fkCartItemsCart",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.productVariantId],
+      foreignColumns: [productvariants.id],
+      name: "fkCartItemsVariant",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+  ]
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Audit Logs - Track sensitive admin operations
 // ─────────────────────────────────────────────────────────────────────────────
 

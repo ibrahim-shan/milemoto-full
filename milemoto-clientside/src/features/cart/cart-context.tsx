@@ -88,6 +88,7 @@ export function CartProvider({ children }: PropsWithChildren) {
         imageSrc: input.imageSrc,
         priceMinor: input.priceMinor,
         qty,
+        productVariantId: input.productVariantId,
       };
       return [...prev, next];
     });

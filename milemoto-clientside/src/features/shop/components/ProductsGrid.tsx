@@ -1,98 +1,52 @@
 // src/components/shop/ProductsGrid.tsx
 'use client';
 
+import { Loader2 } from 'lucide-react';
+
 import { ProductCard } from '@/ui/cards/ProductCard';
+import type { StorefrontProductListItem } from '@/types';
 
-export type Product = {
-  title: string;
-  href: string;
-  imageSrc: string;
-  imageAlt: string;
-  priceMinor: number;
-};
-
-const demoProducts: Product[] = [
-  {
-    title: 'Spark Plug Set',
-    href: '/product/spark-plug',
-    imageSrc: '/images/deals/brake.webp',
-    imageAlt: 'Spark plugs',
-    priceMinor: 4_500_000,
-  },
-  {
-    title: 'Brake Pads',
-    href: '/product/brake-pads',
-    imageSrc: '/images/deals/brake.webp',
-    imageAlt: 'Brake pads',
-    priceMinor: 4_500_000,
-  },
-  {
-    title: 'Engine Assembly',
-    href: '/product/engine',
-    imageSrc: '/images/cta/engine.webp',
-    imageAlt: 'Engine',
-    priceMinor: 4_500_000,
-  },
-  {
-    title: 'Spark Plug Set',
-    href: '/product/spark-plug-2',
-    imageSrc: '/images/deals/brake.webp',
-    imageAlt: 'Spark plugs',
-    priceMinor: 4_500_000,
-  },
-  {
-    title: 'Brake Pads',
-    href: '/product/brake-pads-2',
-    imageSrc: '/images/deals/brake.webp',
-    imageAlt: 'Brake pads',
-    priceMinor: 4_500_000,
-  },
-  {
-    title: 'Engine Assembly',
-    href: '/product/engine-2',
-    imageSrc: '/images/cta/engine.webp',
-    imageAlt: 'Engine',
-    priceMinor: 4_500_000,
-  },
-];
+export type ProductGridItem = StorefrontProductListItem;
 
 type SortKey = 'default' | 'price-asc' | 'price-desc' | 'title-asc';
 
 export function ProductsGrid({
-  query = '',
-  sort = 'default',
-  cardVariant = 'overlay', // NEW
-  onAdd, // NEW
+  products,
+  loading = false,
+  cardVariant = 'overlay',
+  onAdd,
 }: {
-  query?: string;
-  sort?: SortKey;
+  products: ProductGridItem[];
+  loading?: boolean;
   cardVariant?: 'overlay' | 'inline';
-  onAdd?: (p: Product) => void;
+  onAdd?: (p: ProductGridItem) => void;
 }) {
-  const q = query.trim().toLowerCase();
-  let items = demoProducts.filter(p => p.title.toLowerCase().includes(q));
-  if (sort === 'price-asc') items = [...items].sort((a, b) => a.priceMinor - b.priceMinor);
-  else if (sort === 'price-desc') items = [...items].sort((a, b) => b.priceMinor - a.priceMinor);
-  else if (sort === 'title-asc') items = [...items].sort((a, b) => a.title.localeCompare(b.title));
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="text-foreground/40 h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
-  if (items.length === 0) {
-    return <p className="text-foreground/70 text-sm">No products match.</p>;
+  if (products.length === 0) {
+    return <p className="text-foreground/70 py-10 text-center text-sm">No products found.</p>;
   }
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3">
-      {items.map((p, i) => (
+      {products.map((p, i) => (
         <ProductCard
-          key={p.href}
-          title={p.title}
-          href={p.href}
-          imageSrc={p.imageSrc}
-          imageAlt={p.imageAlt}
-          priceMinor={p.priceMinor}
-          variant={cardVariant} // NEW
-          onAdd={() => onAdd?.(p)} // NEW
-          imgPriority={i === 0} // first visible card = LCP
-          imgLoading={i === 0 ? 'eager' : 'lazy'} // others lazy
+          key={p.id}
+          title={p.name}
+          href={`/product/${p.slug}`}
+          imageSrc={p.imageSrc || '/images/placeholder.png'}
+          imageAlt={p.name}
+          priceMinor={p.startingPrice ?? 0}
+          variant={cardVariant}
+          onAdd={() => onAdd?.(p)}
+          imgPriority={i === 0}
+          imgLoading={i === 0 ? 'eager' : 'lazy'}
         />
       ))}
     </div>

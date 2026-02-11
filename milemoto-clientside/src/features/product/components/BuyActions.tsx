@@ -16,9 +16,10 @@ type Props = {
   title: string;
   priceMinor: number;
   imageSrc: string;
+  productVariantId?: number | undefined;
 };
 
-export function BuyActions({ stock, slug, title, priceMinor, imageSrc }: Props) {
+export function BuyActions({ stock, slug, title, priceMinor, imageSrc, productVariantId }: Props) {
   const router = useRouter();
   const { addItem } = useCart();
   const [qty, setQty] = useState(1);
@@ -28,7 +29,7 @@ export function BuyActions({ stock, slug, title, priceMinor, imageSrc }: Props) 
       toast.error('This item is currently out of stock.');
       return;
     }
-    addItem({ slug, title, priceMinor, imageSrc, qty });
+    addItem({ slug, title, priceMinor, imageSrc, qty, productVariantId });
     toast.success('Added to cart.');
   };
 
@@ -37,7 +38,7 @@ export function BuyActions({ stock, slug, title, priceMinor, imageSrc }: Props) 
       toast.error('This item is currently out of stock.');
       return;
     }
-    addItem({ slug, title, priceMinor, imageSrc, qty });
+    addItem({ slug, title, priceMinor, imageSrc, qty, productVariantId });
     router.push('/checkout');
   };
 
