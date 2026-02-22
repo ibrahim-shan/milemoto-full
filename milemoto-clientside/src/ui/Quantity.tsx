@@ -25,7 +25,7 @@ export function Quantity({ value, onChange, min = 1, max = 99, className = '' }:
         variant="ghost"
         size="xs"
         icon
-        className="hover:bg-foreground/10 h-7 w-7 rounded-full"
+        className="hover:bg-foreground/10 text-foreground h-7 w-7 rounded-full"
         aria-label="Decrease quantity"
         onClick={dec}
         disabled={value <= min}
@@ -47,7 +47,7 @@ export function Quantity({ value, onChange, min = 1, max = 99, className = '' }:
         variant="ghost"
         size="xs"
         icon
-        className="hover:bg-foreground/10 h-7 w-7 rounded-full"
+        className="hover:bg-foreground/10 text-foreground h-7 w-7 rounded-full"
         aria-label="Increase quantity"
         onClick={inc}
         disabled={value >= max}

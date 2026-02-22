@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import OtpInput from 'react-otp-input';
 
+import { useCart } from '@/features/cart/cart-context';
 import { useAuth } from '@/hooks/useAuth';
 import { verifyMfaLogin } from '@/lib/auth';
 import type { AuthOutputDto } from '@/types';
@@ -27,6 +28,7 @@ export function MfaPrompt({
   onSuccess: () => void;
 }) {
   const { setSession } = useAuth();
+  const { mergeIntoServer, loadFromServer } = useCart();
   const queryClient = useQueryClient();
   const [code, setCode] = useState('');
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -63,6 +65,10 @@ export function MfaPrompt({
           rememberDevice,
         }); // <-- UPDATE THIS
         setSession(res);
+        void (async () => {
+          await mergeIntoServer();
+          await loadFromServer();
+        })();
         queryClient.removeQueries({ queryKey: ['my-permissions'] });
         queryClient.invalidateQueries({ queryKey: ['my-permissions'] });
         onSuccess();
@@ -75,7 +81,18 @@ export function MfaPrompt({
         setLoading(false);
       }
     },
-    [code, isBackup, challengeId, loading, onSuccess, rememberDevice, setSession, queryClient],
+    [
+      code,
+      isBackup,
+      challengeId,
+      loading,
+      onSuccess,
+      rememberDevice,
+      setSession,
+      mergeIntoServer,
+      loadFromServer,
+      queryClient,
+    ],
   );
   // --- END UPDATE ---
 

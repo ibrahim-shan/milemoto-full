@@ -20,10 +20,15 @@ export default function StockPage() {
     { id: 'sku', label: 'SKU' },
     { id: 'product', label: 'Product / Variant' },
     { id: 'location', label: 'Location' },
+    { id: 'buyingPrice', label: 'Buying Price' },
+    { id: 'sellingPrice', label: 'Selling Price' },
     { id: 'onHand', label: 'On Hand' },
     { id: 'allocated', label: 'Allocated' },
     { id: 'onOrder', label: 'On Order' },
   ];
+
+  const fmtPrice = (val: number | null | undefined) =>
+    val == null ? '—' : `$${Number(val).toFixed(2)}`;
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -86,6 +91,8 @@ export default function StockPage() {
                 {isColumnVisible('sku') && <TableHead>SKU</TableHead>}
                 {isColumnVisible('product') && <TableHead>Product / Variant</TableHead>}
                 {isColumnVisible('location') && <TableHead>Location</TableHead>}
+                {isColumnVisible('buyingPrice') && <TableHead>Buying Price</TableHead>}
+                {isColumnVisible('sellingPrice') && <TableHead>Selling Price</TableHead>}
                 {isColumnVisible('onHand') && <TableHead>On Hand</TableHead>}
                 {isColumnVisible('allocated') && <TableHead>Allocated</TableHead>}
                 {isColumnVisible('onOrder') && <TableHead>On Order</TableHead>}
@@ -108,6 +115,16 @@ export default function StockPage() {
                     {isColumnVisible('location') && (
                       <TableCell>
                         <Skeleton className="h-5 w-32" />
+                      </TableCell>
+                    )}
+                    {isColumnVisible('buyingPrice') && (
+                      <TableCell>
+                        <Skeleton className="h-5 w-20" />
+                      </TableCell>
+                    )}
+                    {isColumnVisible('sellingPrice') && (
+                      <TableCell>
+                        <Skeleton className="h-5 w-20" />
                       </TableCell>
                     )}
                     {isColumnVisible('onHand') && (
@@ -170,6 +187,14 @@ export default function StockPage() {
                     )}
                     {isColumnVisible('location') && (
                       <TableCell>{level.stockLocationName ?? '-'}</TableCell>
+                    )}
+                    {isColumnVisible('buyingPrice') && (
+                      <TableCell className="font-mono text-xs">
+                        {fmtPrice(level.costPrice)}
+                      </TableCell>
+                    )}
+                    {isColumnVisible('sellingPrice') && (
+                      <TableCell className="font-mono text-xs">{fmtPrice(level.price)}</TableCell>
                     )}
                     {isColumnVisible('onHand') && (
                       <TableCell>

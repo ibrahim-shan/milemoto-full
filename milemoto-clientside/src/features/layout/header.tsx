@@ -129,12 +129,18 @@ export function Header() {
   const { isAuthenticated, logout } = useAuth();
   const queryClient = useQueryClient();
   const { items, removeItem, clear } = useCart();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const isHome = pathname === '/';
   const isCart = pathname?.startsWith('/cart') || pathname === '/cart';
 
   const [cartOpen, setCartOpen] = useState(false);
 
   const handleLogout = async () => {
+    clear();
     await logout();
     queryClient.removeQueries({ queryKey: ['my-permissions'] });
     router.push('/');
@@ -226,10 +232,20 @@ export function Header() {
               variant={isHome ? 'home' : 'default'}
               disabled={isCart}
             >
-              <ShoppingCart
-                aria-hidden
-                className="h-5 w-5"
-              />
+              <span className="relative inline-flex">
+                <ShoppingCart
+                  aria-hidden
+                  className="h-5 w-5"
+                />
+                {mounted && items.length > 0 && (
+                  <span
+                    aria-label={`${items.length} items in cart`}
+                    className="bg-primary text-primary-foreground absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold leading-none"
+                  >
+                    {items.length > 99 ? '99+' : items.length}
+                  </span>
+                )}
+              </span>
             </IconButton>
             <span
               className={isHome ? 'h-5 w-px bg-white/30' : 'bg-border/70 h-5 w-px'}
@@ -258,7 +274,6 @@ export function Header() {
             onRemove={removeItem}
             onCheckout={() => {
               setCartOpen(false);
-              clear();
               location.assign('/checkout');
             }}
           />

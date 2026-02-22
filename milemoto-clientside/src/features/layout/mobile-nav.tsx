@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 import { Heart, Home, Search, ShoppingCart, User as UserIcon } from 'lucide-react';
 
+import { useCart } from '@/features/cart/cart-context';
 import { Input } from '@/ui/input';
 
 export function MobileNav({
@@ -16,6 +17,8 @@ export function MobileNav({
   onToggleCart: () => void;
   cartOpen: boolean;
 }) {
+  const { items } = useCart();
+  const itemCount = items.length;
   const [mounted, setMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -174,10 +177,20 @@ export function MobileNav({
                     title="Cart"
                     className="text-foreground/80 hover:text-foreground flex h-12 w-full max-w-[120px] flex-col items-center justify-center gap-0.5"
                   >
-                    <ShoppingCart
-                      className="h-5 w-5"
-                      aria-hidden
-                    />
+                    <span className="relative inline-flex">
+                      <ShoppingCart
+                        className="h-5 w-5"
+                        aria-hidden
+                      />
+                      {mounted && itemCount > 0 && (
+                        <span
+                          aria-label={`${itemCount} items in cart`}
+                          className="bg-primary text-primary-foreground absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold leading-none"
+                        >
+                          {itemCount > 99 ? '99+' : itemCount}
+                        </span>
+                      )}
+                    </span>
                     <span className="text-[11px]">Cart</span>
                   </button>
                 </li>

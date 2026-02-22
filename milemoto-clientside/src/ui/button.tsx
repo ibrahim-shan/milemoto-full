@@ -105,6 +105,7 @@ function baseClasses(size: Size, fullWidth?: boolean, icon?: boolean) {
     'motion-safe:active:scale-[0.99]',
     'flex-nowrap min-w-0 whitespace-nowrap',
     icon ? iconSizes[size] : sizes[size],
+    icon && 'justify-center',
     fullWidth && 'w-full',
   );
 }
@@ -167,7 +168,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>((props, r
       {!isLoading && !icon && leftIcon && (
         <span className="shrink-0 leading-none [&>svg]:block [&>svg]:align-middle">{leftIcon}</span>
       )}
-      {!icon && (
+      {icon ? (
+        // Icon-only mode: render children directly (the SVG icon passed as children)
+        !isLoading && <>{children}</>
+      ) : (
         <span
           className={cx(
             'inline-flex items-center gap-2 leading-none',

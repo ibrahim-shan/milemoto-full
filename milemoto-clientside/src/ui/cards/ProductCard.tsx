@@ -1,12 +1,12 @@
 // src/components/cards/ProductCard.tsx
 'use client';
 
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
 import { motion } from 'framer-motion';
-import { Check, ShoppingCart } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 import { formatUSD } from '@/lib/formatPrice';
 import { Button } from '@/ui/button';
@@ -21,6 +21,7 @@ export type ProductCardProps = {
   imgLoading?: 'eager' | 'lazy';
   imgBlurDataURL?: string;
   variant?: 'overlay' | 'inline';
+  /** @deprecated — no longer used; quick-add replaced with View Details */
   onAdd?: () => Promise<void> | void;
   locale?: string;
 };
@@ -35,24 +36,9 @@ function ProductCardInner({
   imgPriority = false,
   imgLoading = 'lazy',
   imgBlurDataURL,
-  onAdd,
   locale = 'en-US',
 }: ProductCardProps) {
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
   const price = formatUSD(priceMinor, { locale });
-
-  async function handleAdd() {
-    if (!onAdd) return;
-    try {
-      setAdding(true);
-      await onAdd();
-      setAdded(true);
-      setTimeout(() => setAdded(false), 1200);
-    } finally {
-      setAdding(false);
-    }
-  }
 
   return (
     <motion.article
@@ -79,41 +65,21 @@ function ProductCardInner({
 
         {variant === 'overlay' && (
           <div className="absolute inset-0 z-10 flex items-center justify-center opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
-            {onAdd ? (
-              <Button
-                size="sm"
-                variant="solid"
-                justify="center"
-                onClick={handleAdd}
-                isLoading={adding}
-                loadingLabel="Adding"
-                aria-label={`Add ${title} to cart`}
-                leftIcon={
-                  <ShoppingCart
-                    className="h-4 w-4"
-                    aria-hidden
-                  />
-                }
-              >
-                Add To Cart
-              </Button>
-            ) : (
-              <Button
-                href={href}
-                size="sm"
-                variant="solid"
-                justify="center"
-                aria-label={`View ${title}`}
-                leftIcon={
-                  <ShoppingCart
-                    className="h-4 w-4"
-                    aria-hidden
-                  />
-                }
-              >
-                View Product
-              </Button>
-            )}
+            <Button
+              href={href}
+              size="sm"
+              variant="solid"
+              justify="center"
+              aria-label={`View details for ${title}`}
+              leftIcon={
+                <Eye
+                  className="h-4 w-4"
+                  aria-hidden
+                />
+              }
+            >
+              View Details
+            </Button>
           </div>
         )}
       </div>
@@ -151,32 +117,20 @@ function ProductCardInner({
         {variant === 'inline' && (
           <div className="mt-2">
             <Button
+              href={href}
               variant="solid"
               size="sm"
               justify="center"
-              onClick={handleAdd}
-              disabled={adding}
-              aria-live="polite"
-              aria-busy={adding}
-              aria-label={`Add ${title} to cart`}
+              fullWidth
+              aria-label={`View details for ${title}`}
+              leftIcon={
+                <Eye
+                  className="h-4 w-4"
+                  aria-hidden
+                />
+              }
             >
-              {added ? (
-                <>
-                  <Check
-                    className="mr-2 h-4 w-4"
-                    aria-hidden
-                  />
-                  Added
-                </>
-              ) : (
-                <>
-                  <ShoppingCart
-                    className="mr-2 h-4 w-4"
-                    aria-hidden
-                  />
-                  {adding ? 'Adding…' : 'Add To Cart'}
-                </>
-              )}
+              View Details
             </Button>
           </div>
         )}

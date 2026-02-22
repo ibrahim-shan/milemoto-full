@@ -14,31 +14,67 @@ type Props = {
   stock: number;
   slug: string;
   title: string;
+  variantName?: string;
   priceMinor: number;
   imageSrc: string;
   productVariantId?: number | undefined;
 };
 
-export function BuyActions({ stock, slug, title, priceMinor, imageSrc, productVariantId }: Props) {
+export function BuyActions({
+  stock,
+  slug,
+  title,
+  variantName,
+  priceMinor,
+  imageSrc,
+  productVariantId,
+}: Props) {
   const router = useRouter();
   const { addItem } = useCart();
   const [qty, setQty] = useState(1);
+  const inStock = stock > 0;
+  const quantityMax = Math.max(1, stock);
+
+  const clampToStock = (value: number) => {
+    if (!inStock) return 0;
+    return Math.max(1, Math.min(value, stock));
+  };
 
   const addToCart = () => {
-    if (!stock) {
+    if (!inStock) {
       toast.error('This item is currently out of stock.');
       return;
     }
-    addItem({ slug, title, priceMinor, imageSrc, qty, productVariantId });
+    const safeQty = clampToStock(qty);
+    addItem({
+      slug,
+      title,
+      ...(variantName !== undefined ? { variantName } : {}),
+      priceMinor,
+      imageSrc,
+      qty: safeQty,
+      stock,
+      productVariantId,
+    });
     toast.success('Added to cart.');
   };
 
   const buyNow = () => {
-    if (!stock) {
+    if (!inStock) {
       toast.error('This item is currently out of stock.');
       return;
     }
-    addItem({ slug, title, priceMinor, imageSrc, qty, productVariantId });
+    const safeQty = clampToStock(qty);
+    addItem({
+      slug,
+      title,
+      ...(variantName !== undefined ? { variantName } : {}),
+      priceMinor,
+      imageSrc,
+      qty: safeQty,
+      stock,
+      productVariantId,
+    });
     router.push('/checkout');
   };
 
@@ -50,11 +86,25 @@ export function BuyActions({ stock, slug, title, priceMinor, imageSrc, productVa
           value={qty}
           onChange={setQty}
           min={1}
-          max={stock}
+          max={quantityMax}
         />
         <div className="text-xs">
-          <p className="font-semibold">Only {stock} items left!</p>
-          <p className="text-foreground/70">Don’t miss it</p>
+          {stock <= 0 ? (
+            <>
+              <p className="font-semibold text-rose-600">Out of stock</p>
+              <p className="text-foreground/70">This variant is currently unavailable</p>
+            </>
+          ) : stock <= 5 ? (
+            <>
+              <p className="font-semibold">Only {stock} items left!</p>
+              <p className="text-foreground/70">Act soon</p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold">In stock</p>
+              <p className="text-foreground/70">{stock} available</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -66,6 +116,7 @@ export function BuyActions({ stock, slug, title, priceMinor, imageSrc, productVa
           fullWidth
           className="sm:w-auto"
           onClick={buyNow}
+          disabled={!inStock}
         >
           Buy Now
         </Button>
@@ -76,6 +127,7 @@ export function BuyActions({ stock, slug, title, priceMinor, imageSrc, productVa
           fullWidth
           className="border-primary text-primary hover:bg-primary/10 sm:w-auto"
           onClick={addToCart}
+          disabled={!inStock}
         >
           Add to Cart
         </Button>

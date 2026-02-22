@@ -3,12 +3,10 @@
 
 import { Loader2 } from 'lucide-react';
 
-import { ProductCard } from '@/ui/cards/ProductCard';
 import type { StorefrontProductListItem } from '@/types';
+import { ProductCard } from '@/ui/cards/ProductCard';
 
 export type ProductGridItem = StorefrontProductListItem;
-
-type SortKey = 'default' | 'price-asc' | 'price-desc' | 'title-asc';
 
 export function ProductsGrid({
   products,
@@ -42,7 +40,7 @@ export function ProductsGrid({
           href={`/product/${p.slug}`}
           imageSrc={p.imageSrc || '/images/placeholder.png'}
           imageAlt={p.name}
-          priceMinor={p.startingPrice ?? 0}
+          priceMinor={(p.startingPrice ?? 0) * 100}
           variant={cardVariant}
           onAdd={() => onAdd?.(p)}
           imgPriority={i === 0}

@@ -1,67 +1,110 @@
 // src/features/shop/components/PriceFilter.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { RefreshCw } from 'lucide-react';
 
 import { Button } from '@/ui/button';
-import { Input } from '@/ui/input';
+import { Slider } from '@/ui/slider';
 
-export function PriceFilter({ onApply }: { onApply?: (min: number, max: number) => void }) {
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(1000);
-  const [error, setError] = useState('');
-  const errorId = 'price-error';
+const ABSOLUTE_MIN = 0;
+const DEFAULT_MAX = 1000;
 
-  const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (isNaN(value)) return setError('Enter a valid number');
-    if (value >= 0 && value <= maxPrice) {
-      setMinPrice(value);
-      setError('');
-    } else setError('Minimum must be less than maximum');
-  };
+/**
+ * Returns a "nice" step value that produces round slider ticks.
+ * e.g. max=100 → step=5, max=1000 → step=50, max=5000 → step=100
+ */
+function niceStep(max: number): number {
+  if (max <= 0) return 1;
+  const rough = max / 20;
+  const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+  const n = rough / pow;
+  const factor = n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10;
+  return factor * pow;
+}
 
-  const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (isNaN(value)) return setError('Enter a valid number');
-    if (value >= minPrice) {
-      setMaxPrice(value);
-      setError('');
-    } else setError('Maximum must be greater than minimum');
-  };
+/**
+ * Round a value to the nearest multiple of `step`.
+ */
+function snapToStep(value: number, step: number): number {
+  return Math.round(value / step) * step;
+}
 
-  const handleMinSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (value <= maxPrice) setMinPrice(value);
-  };
+/**
+ * Generate 3 evenly-spaced preset ranges rounded to nice step boundaries.
+ */
+function makePresets(max: number, step: number) {
+  const q1 = snapToStep(max * 0.25, step);
+  const q2 = snapToStep(max * 0.5, step);
+  const q3 = snapToStep(max * 0.75, step);
+  return [
+    { min: 0, max: q2 },
+    { min: q1, max: q3 },
+    { min: q2, max },
+  ];
+}
 
-  const handleMaxSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (value >= minPrice) setMaxPrice(value);
-  };
+function fmt(n: number) {
+  return n >= 1000 ? `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : `$${n}`;
+}
+
+export function PriceFilter({
+  maxPrice: maxPriceProp,
+  valueMinPrice,
+  valueMaxPrice,
+  onApply,
+}: {
+  maxPrice?: number | undefined;
+  valueMinPrice?: number | undefined;
+  valueMaxPrice?: number | undefined;
+  onApply?: ((min: number, max: number) => void) | undefined;
+}) {
+  const max = maxPriceProp && maxPriceProp > 0 ? maxPriceProp : DEFAULT_MAX;
+  const step = niceStep(max);
+  const [range, setRange] = useState<[number, number]>([ABSOLUTE_MIN, max]);
+  const prevMaxRef = useRef(max);
+
+  useEffect(() => {
+    const prevMax = prevMaxRef.current;
+    if (prevMax === max) return;
+
+    setRange(([min, currentMax]) => {
+      // If user is still on the previous "full range", expand to the new max.
+      if (min === ABSOLUTE_MIN && currentMax === prevMax) {
+        return [ABSOLUTE_MIN, max];
+      }
+
+      const nextMin = Math.min(min, max);
+      const nextMax = Math.min(currentMax, max);
+      return [Math.min(nextMin, nextMax), nextMax];
+    });
+
+    prevMaxRef.current = max;
+  }, [max]);
+
+  useEffect(() => {
+    const nextMinRaw = valueMinPrice ?? ABSOLUTE_MIN;
+    const nextMaxRaw = valueMaxPrice ?? max;
+    const nextMin = Math.max(ABSOLUTE_MIN, Math.min(nextMinRaw, max));
+    const nextMax = Math.max(nextMin, Math.min(nextMaxRaw, max));
+
+    setRange(prev => (prev[0] === nextMin && prev[1] === nextMax ? prev : [nextMin, nextMax]));
+  }, [valueMinPrice, valueMaxPrice, max]);
 
   const handleReset = () => {
-    setMinPrice(0);
-    setMaxPrice(1000);
-    setError('');
+    setRange([ABSOLUTE_MIN, max]);
+    onApply?.(ABSOLUTE_MIN, max);
   };
+  const handleApply = () => onApply?.(range[0], range[1]);
 
-  const presets = [
-    { min: 0, max: 100 },
-    { min: 100, max: 500 },
-    { min: 500, max: 1000 },
-  ];
-
-  const invalid = !!error || minPrice > maxPrice;
+  const presets = makePresets(max, step);
 
   return (
     <div className="rounded-xl">
-      <div className="mb-6 flex items-center justify-between">
+      {/* Header */}
+      <div className="mb-5 flex items-center justify-between">
         <h2 className="text-foreground text-base font-semibold">Price Range</h2>
-
-        {/* Reset → use Button (ghost) */}
         <Button
           variant="ghost"
           size="sm"
@@ -77,126 +120,49 @@ export function PriceFilter({ onApply }: { onApply?: (min: number, max: number) 
         </Button>
       </div>
 
-      {/* Inputs */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row">
-        <div className="flex-1">
-          <label
-            htmlFor="min"
-            className="text-foreground/80 mb-1 block text-sm font-medium"
-          >
-            Min ($)
-          </label>
-          <Input
-            id="min"
-            type="number"
-            value={minPrice}
-            onChange={handleMinChange}
-            aria-describedby={error ? errorId : undefined}
-            inputMode="numeric"
-            className="border-border bg-background text-foreground focus:border-primary w-full rounded-md border px-3 py-2 text-sm focus:outline-none"
-          />
-        </div>
-        <div className="flex-1">
-          <label
-            htmlFor="max"
-            className="text-foreground/80 mb-1 block text-sm font-medium"
-          >
-            Max ($)
-          </label>
-          <Input
-            id="max"
-            type="number"
-            value={maxPrice}
-            onChange={handleMaxChange}
-            aria-describedby={error ? errorId : undefined}
-            inputMode="numeric"
-            className="border-border bg-background text-foreground focus:border-primary w-full rounded-md border px-3 py-2 text-sm focus:outline-none"
-          />
-        </div>
+      {/* Current range display */}
+      <div className="text-foreground/70 mb-3 flex justify-between text-sm font-medium">
+        <span>{fmt(range[0])}</span>
+        <span>{fmt(range[1])}</span>
       </div>
 
-      {/* Sliders */}
-      <div className="relative mb-6">
-        <div className="text-foreground/70 mb-2 flex justify-between text-xs">
-          <span>$ {minPrice}</span>
-          <span>$ {maxPrice}</span>
-        </div>
-        <div
-          className="relative h-2"
-          aria-hidden
-          role="presentation"
-        >
-          <div className="bg-foreground/20 absolute inset-0 rounded-full" />
-          <div
-            className="bg-primary absolute h-2 rounded-full"
-            style={{
-              left: `${(minPrice / 1000) * 100}%`,
-              width: `${((maxPrice - minPrice) / 1000) * 100}%`,
-            }}
-          />
-          <Input
-            type="range"
-            min={0}
-            max={1000}
-            value={minPrice}
-            onChange={handleMinSlider}
-            aria-label="Minimum price"
-            className="accent-primary absolute h-2 w-full cursor-pointer appearance-none bg-transparent"
-          />
-          <Input
-            type="range"
-            min={0}
-            max={1000}
-            value={maxPrice}
-            onChange={handleMaxSlider}
-            aria-label="Maximum price"
-            className="accent-primary absolute h-2 w-full cursor-pointer appearance-none bg-transparent"
-          />
-        </div>
-      </div>
+      {/* Dual-thumb Slider */}
+      <Slider
+        min={ABSOLUTE_MIN}
+        max={max}
+        step={step}
+        value={range}
+        onValueChange={v => setRange(v as [number, number])}
+        aria-label="Price range"
+        className="mb-6"
+      />
 
-      {error && (
-        <p
-          id={errorId}
-          className="text-error mb-4 text-sm"
-          role="alert"
-          aria-live="polite"
-        >
-          {error}
-        </p>
-      )}
-
-      {/* Presets → use Button (subtle/secondary) */}
+      {/* Presets */}
       <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {presets.map((r, i) => {
-          const active = minPrice === r.min && maxPrice === r.max;
+        {presets.map(p => {
+          const active = range[0] === p.min && range[1] === p.max;
           return (
             <Button
-              key={i}
+              key={`${p.min}-${p.max}`}
               variant={active ? 'secondary' : 'subtle'}
               size="sm"
               fullWidth
               aria-pressed={active}
-              onClick={() => {
-                setMinPrice(r.min);
-                setMaxPrice(r.max);
-                setError('');
-              }}
+              onClick={() => setRange([p.min, p.max])}
             >
-              ${r.min}–{r.max}
+              {fmt(p.min)}–{fmt(p.max)}
             </Button>
           );
         })}
       </div>
 
-      {/* Apply → use Button (solid, full width, disabled on invalid) */}
+      {/* Apply */}
       <Button
         variant="solid"
         justify="center"
         size="md"
         fullWidth
-        disabled={invalid}
-        onClick={() => onApply?.(minPrice, maxPrice)}
+        onClick={handleApply}
       >
         Apply
       </Button>

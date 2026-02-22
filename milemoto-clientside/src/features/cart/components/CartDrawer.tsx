@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import Image from 'next/image';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 
 import { CartItem } from '@/features/cart/types';
 import { Button } from '@/ui/button';
@@ -156,6 +156,18 @@ export function CartDrawer({ open, items, onClose, onRemove, onCheckout }: Props
                       />
                       <div className="min-w-0 grow">
                         <p className="truncate text-sm font-medium">{it.title}</p>
+                        {it.variantName && (
+                          <p className="text-foreground/50 truncate text-xs">{it.variantName}</p>
+                        )}
+                        {it.warning && (
+                          <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber-500">
+                            <AlertTriangle
+                              className="h-3 w-3 shrink-0"
+                              aria-hidden
+                            />
+                            {it.warning}
+                          </p>
+                        )}
                         <p className="text-foreground/70 text-xs">
                           {formatPrice(it.priceMinor)} × {it.qty}
                         </p>

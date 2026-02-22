@@ -1,41 +1,50 @@
 // src/components/product/ProductGallery.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
 import { cn } from '@/lib/utils';
 
 type Props = {
   images: { src: string; alt: string }[];
-  /** When set, the gallery will jump to this index (controlled externally) */
+  /** Controlled active image index */
   activeIndex?: number | undefined;
+  /** Controlled mode change handler */
+  onActiveIndexChange?: ((index: number) => void) | undefined;
 };
 
-export function ProductGallery({ images, activeIndex }: Props) {
+export function ProductGallery({ images, activeIndex, onActiveIndexChange }: Props) {
   const [idx, setIdx] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  // Sync with external activeIndex when it changes
-  useEffect(() => {
-    if (activeIndex !== undefined && activeIndex >= 0 && activeIndex < images.length) {
-      setIdx(activeIndex);
-    }
-  }, [activeIndex, images.length]);
-
   // derive a safe index instead of setState in an effect
   const maxIndex = Math.max(0, images.length - 1);
-  const viewIdx = Math.min(idx, maxIndex);
+  const hasControlledIndex =
+    activeIndex !== undefined && activeIndex >= 0 && activeIndex < images.length;
+  const viewIdx = Math.min(hasControlledIndex ? activeIndex : idx, maxIndex);
+
+  const setCurrentIndex = useCallback(
+    (next: number) => {
+      const clamped = Math.max(0, Math.min(next, maxIndex));
+      if (hasControlledIndex && onActiveIndexChange) {
+        onActiveIndexChange(clamped);
+        return;
+      }
+      setIdx(clamped);
+    },
+    [maxIndex, hasControlledIndex, onActiveIndexChange],
+  );
 
   // keyboard arrows
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'ArrowRight') setIdx(i => Math.min(i + 1, maxIndex));
-      if (e.key === 'ArrowLeft') setIdx(i => Math.max(i - 1, 0));
+      if (e.key === 'ArrowRight') setCurrentIndex(viewIdx + 1);
+      if (e.key === 'ArrowLeft') setCurrentIndex(viewIdx - 1);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [maxIndex]);
+  }, [viewIdx, setCurrentIndex]);
 
   if (images.length === 0) {
     return (
@@ -82,7 +91,7 @@ export function ProductGallery({ images, activeIndex }: Props) {
               type="button"
               aria-label={`Thumbnail ${i + 1}`}
               aria-pressed={active}
-              onClick={() => setIdx(i)}
+              onClick={() => setCurrentIndex(i)}
               className={cn(
                 'aspect-4/3 relative overflow-hidden rounded-lg border',
                 active ? 'border-primary ring-ring ring-0' : 'border-border/60 hover:border-border',

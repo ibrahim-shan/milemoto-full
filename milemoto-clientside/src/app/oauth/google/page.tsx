@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { useCart } from '@/features/cart/cart-context';
 import { useAuth } from '@/hooks/useAuth';
 import { getMe, refresh } from '@/lib/auth';
 
@@ -15,6 +16,7 @@ function sanitizeNext(param: string | null): string {
 export default function GoogleOAuthHandler() {
   const router = useRouter();
   const { setSession } = useAuth();
+  const { mergeIntoServer, loadFromServer } = useCart();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -43,6 +45,10 @@ export default function GoogleOAuthHandler() {
         const user = await getMe();
         if (cancelled) return;
         setSession({ accessToken, user });
+        void (async () => {
+          await mergeIntoServer();
+          await loadFromServer();
+        })();
         router.replace(next);
       } catch {
         router.replace('/signin?error=OAuthFailed');
@@ -54,7 +60,7 @@ export default function GoogleOAuthHandler() {
     return () => {
       cancelled = true;
     };
-  }, [router, setSession]);
+  }, [router, setSession, mergeIntoServer, loadFromServer]);
 
   return (
     <main className="bg-background text-foreground grid min-h-dvh place-items-center px-6 py-16">

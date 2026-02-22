@@ -29,6 +29,13 @@ export async function sendNewVerificationEmail(userId: string, email: string) {
     });
 
     const verifyUrl = `${env.FRONTEND_BASE_URL}/verify-email?token=${token}`;
+
+    // In development: always log the URL to the console so you can
+    // verify accounts without needing a mail server configured.
+    if (env.NODE_ENV !== 'production') {
+      logger.info({ verifyUrl }, '📧 [DEV] Email verification URL (use this to verify manually)');
+    }
+
     await sendVerificationEmail(email.toLowerCase(), verifyUrl);
   } catch (emailError: unknown) {
     logger.error(

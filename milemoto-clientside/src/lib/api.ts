@@ -120,31 +120,53 @@ async function request<T>(
   const initWithCsrf = await maybeAddCsrfHeader(path, init);
   const headers = { ...mergeHeaders(initWithCsrf.headers) };
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), initWithCsrf.timeout ?? DEFAULT_TIMEOUT_MS);
+  let didTimeout = false;
+  const onTimeout = () => {
+    didTimeout = true;
+    controller.abort();
+  };
+  const timeout = setTimeout(onTimeout, initWithCsrf.timeout ?? DEFAULT_TIMEOUT_MS);
+  const externalSignal = initWithCsrf.signal;
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      clearTimeout(timeout);
+      const err = new Error('Request aborted') as Error & { status?: number; code?: string };
+      err.status = 0;
+      err.code = 'Aborted';
+      throw err;
+    }
+    externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+  }
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       credentials: 'include',
       ...initWithCsrf,
       headers,
-      signal: initWithCsrf.signal ?? controller.signal,
+      signal: controller.signal,
     });
   } catch (e: unknown) {
     // Check if e is an object with a 'name' property
     if (e && typeof e === 'object' && 'name' in e && e.name === 'AbortError') {
-      // --- FIX 5 & 6 (Lines 62-63): Cast the new error to add properties safely ---
-      const err = new Error('Request timed out') as Error & { status?: number; code?: string };
+      const err = new Error(didTimeout ? 'Request timed out' : 'Request aborted') as Error & {
+        status?: number;
+        code?: string;
+      };
       err.status = 0;
-      err.code = 'Timeout';
+      err.code = didTimeout ? 'Timeout' : 'Aborted';
       clearTimeout(timeout);
+      if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
       throw err;
     }
     clearTimeout(timeout);
+    if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
     throw e;
   } finally {
     // ensure timeout cleared if fetch resolves or throws synchronously
   }
   clearTimeout(timeout);
+  if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
   const ct = res.headers.get('content-type') || '';
   const body = ct.includes('application/json') ? await res.json() : null;
 

@@ -47,6 +47,8 @@ export async function listStockLevels(params: StockLevelListQueryDto) {
         productName: products.name,
         stockLocationName: stocklocations.name,
         lowStockThreshold: productvariants.lowStockThreshold,
+        price: productvariants.price,
+        costPrice: productvariants.costPrice,
         createdAt: stocklevels.createdAt,
         updatedAt: stocklevels.updatedAt,
       })

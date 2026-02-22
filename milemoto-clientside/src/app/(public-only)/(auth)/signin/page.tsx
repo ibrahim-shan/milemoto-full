@@ -9,8 +9,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldCheck, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { MfaPrompt } from '@/features/auth/components/MfaPrompt'; // <-- ADD THIS IMPORT
+import { MfaPrompt } from '@/features/auth/components/MfaPrompt';
 import GoogleButton from '@/features/auth/GoogleButton';
+import { useCart } from '@/features/cart/cart-context';
 import { useAuth } from '@/hooks/useAuth';
 import { get } from '@/lib/api';
 import { login, resendVerificationEmail } from '@/lib/auth';
@@ -28,6 +29,7 @@ export default function SignInPage() {
   const router = useRouter();
   const search = useSearchParams();
   const { setSession } = useAuth();
+  const { mergeIntoServer, loadFromServer } = useCart();
   const queryClient = useQueryClient();
 
   const [rememberUI, setRememberUI] = useState(false);
@@ -123,6 +125,10 @@ export default function SignInPage() {
       } else {
         // No MFA. Login was successful.
         setSession(res);
+        void (async () => {
+          await mergeIntoServer();
+          await loadFromServer();
+        })();
         queryClient.removeQueries({ queryKey: ['my-permissions'] });
         queryClient.invalidateQueries({ queryKey: ['my-permissions'] });
         router.replace(nextUrl);

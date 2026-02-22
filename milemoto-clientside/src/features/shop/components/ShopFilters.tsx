@@ -7,9 +7,8 @@ import { PriceFilter } from './PriceFilter';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Loader2 } from 'lucide-react';
 
-import { Checkbox } from '@/ui/checkbox';
-
 import type { StorefrontFiltersResponse } from '@/types';
+import { Checkbox } from '@/ui/checkbox';
 
 export type FilterState = {
   categoryIds: number[];
@@ -32,13 +31,27 @@ export function ShopFilters({ filters, loading, value, onChange }: Props) {
 
   const toggleOpen = (name: string) => setOpen(prev => ({ ...prev, [name]: !prev[name] }));
 
-  const toggleId = (key: 'categoryIds' | 'subCategoryIds' | 'brandIds' | 'gradeIds', id: number) => {
+  const toggleId = (
+    key: 'categoryIds' | 'subCategoryIds' | 'brandIds' | 'gradeIds',
+    id: number,
+  ) => {
     const current = value[key];
     const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
     onChange({ ...value, [key]: next });
   };
 
   const handlePriceApply = (min: number, max: number) => {
+    const fullRangeMax = filters?.maxPrice && filters.maxPrice > 0 ? filters.maxPrice : max;
+    const isFullRange = min <= 0 && max >= fullRangeMax;
+
+    if (isFullRange) {
+      const { minPrice: _min, maxPrice: _max, ...rest } = value;
+      void _min;
+      void _max;
+      onChange(rest);
+      return;
+    }
+
     onChange({ ...value, minPrice: min, maxPrice: max });
   };
 
@@ -104,8 +117,9 @@ export function ShopFilters({ filters, loading, value, onChange }: Props) {
                         title={`Toggle ${cat.name}`}
                       >
                         <ChevronDown
-                          className={`text-foreground/60 h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''
-                            }`}
+                          className={`text-foreground/60 h-4 w-4 transition-transform ${
+                            isOpen ? 'rotate-180' : ''
+                          }`}
                           aria-hidden
                         />
                       </button>
@@ -228,7 +242,12 @@ export function ShopFilters({ filters, loading, value, onChange }: Props) {
         </div>
       )}
 
-      <PriceFilter onApply={handlePriceApply} />
+      <PriceFilter
+        maxPrice={filters.maxPrice}
+        valueMinPrice={value.minPrice}
+        valueMaxPrice={value.maxPrice}
+        onApply={handlePriceApply}
+      />
     </div>
   );
 }

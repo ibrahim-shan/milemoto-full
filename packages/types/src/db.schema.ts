@@ -818,6 +818,8 @@ export const products = mysqlTable(
       .notNull(),
   },
   (table) => [
+    // NOTE: FULLTEXT index on products.name is applied via SQL migration because
+    // this Drizzle MySQL version does not expose a FULLTEXT index builder API.
     uniqueIndex("slug").on(table.slug),
     foreignKey({
       columns: [table.brandId],

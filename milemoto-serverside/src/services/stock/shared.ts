@@ -54,6 +54,16 @@ export function mapStockLevelRow(row: UnknownRow): StockLevelResponse {
     base.lowStockThreshold = Number(row.lowStockThreshold);
   }
 
+  // Price (selling price)
+  if (row.price !== undefined) {
+    base.price = row.price === null ? null : Number(row.price);
+  }
+
+  // Cost price (buying price)
+  if (row.costPrice !== undefined) {
+    base.costPrice = row.costPrice === null ? null : Number(row.costPrice);
+  }
+
   return base;
 }
 

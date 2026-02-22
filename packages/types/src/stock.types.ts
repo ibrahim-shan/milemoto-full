@@ -21,6 +21,8 @@ export interface StockLevelResponse extends ApiModel<StockLevel> {
   productName?: string;
   stockLocationName?: string;
   lowStockThreshold?: number | null;
+  costPrice?: number | null;
+  price?: number | null;
 }
 
 export type PaginatedStockLevelResponse = PaginatedResponse<StockLevelResponse>;
