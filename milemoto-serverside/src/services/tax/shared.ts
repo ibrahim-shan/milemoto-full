@@ -14,6 +14,13 @@ export function formatTax(row: TaxRow) {
     status: row.status,
     countryId: row.countryId ?? null,
     countryName: row.countryName ?? null,
+    validFrom:
+      row.validFrom instanceof Date
+        ? row.validFrom
+        : row.validFrom
+          ? new Date(row.validFrom)
+          : null,
+    validTo: row.validTo instanceof Date ? row.validTo : row.validTo ? new Date(row.validTo) : null,
     createdAt:
       row.createdAt instanceof Date
         ? row.createdAt
@@ -38,6 +45,8 @@ export async function fetchTaxById(id: number) {
       type: taxes.type,
       status: taxes.status,
       countryId: taxes.countryId,
+      validFrom: taxes.validFrom,
+      validTo: taxes.validTo,
       countryName: countries.name,
       createdAt: taxes.createdAt,
       updatedAt: taxes.updatedAt,

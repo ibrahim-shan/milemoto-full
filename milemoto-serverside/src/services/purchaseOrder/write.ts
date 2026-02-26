@@ -50,6 +50,9 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDto, userId: 
           orderedQty: number;
           unitCost: number;
           taxId: number | null;
+          taxName: string | null;
+          taxType: 'percentage' | 'fixed' | null;
+          taxRate: number | null;
           expectedLineDeliveryDate: string | null;
           comments: string | null;
           lineSubtotal: number;
@@ -69,6 +72,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDto, userId: 
           if (taxId !== null) {
             lineArgs.taxId = taxId;
           }
+          const taxMeta = taxId !== null ? (taxMap.get(taxId) ?? null) : null;
 
           const { lineSubtotal, lineTax, lineTotal } = computeLineAmounts(lineArgs, taxMap);
 
@@ -81,6 +85,9 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDto, userId: 
             orderedQty,
             unitCost: unitCostNum,
             taxId,
+            taxName: taxMeta?.name ?? null,
+            taxType: taxMeta?.type ?? null,
+            taxRate: taxMeta?.rate ?? null,
             expectedLineDeliveryDate: line.expectedLineDeliveryDate ?? null,
             comments: line.comments ?? null,
             lineSubtotal,
@@ -141,6 +148,9 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDto, userId: 
               orderedQty: l.orderedQty,
               unitCost: l.unitCost,
               taxId: l.taxId,
+              taxName: l.taxName,
+              taxType: l.taxType,
+              taxRate: l.taxRate,
               expectedLineDeliveryDate: parseDateOnly(l.expectedLineDeliveryDate),
               comments: l.comments,
               receivedQty: 0,
@@ -264,6 +274,9 @@ export async function updatePurchaseOrder(id: number, data: UpdatePurchaseOrderD
         orderedQty: number;
         unitCost: number;
         taxId: number | null;
+        taxName: string | null;
+        taxType: 'percentage' | 'fixed' | null;
+        taxRate: number | null;
         expectedLineDeliveryDate: string | null;
         comments: string | null;
         lineSubtotal: number;
@@ -283,6 +296,7 @@ export async function updatePurchaseOrder(id: number, data: UpdatePurchaseOrderD
         if (taxId !== null) {
           lineArgs.taxId = taxId;
         }
+        const taxMeta = taxId !== null ? (taxMap.get(taxId) ?? null) : null;
 
         const { lineSubtotal, lineTax, lineTotal } = computeLineAmounts(lineArgs, taxMap);
 
@@ -295,6 +309,9 @@ export async function updatePurchaseOrder(id: number, data: UpdatePurchaseOrderD
           orderedQty,
           unitCost: unitCostNum,
           taxId,
+          taxName: taxMeta?.name ?? null,
+          taxType: taxMeta?.type ?? null,
+          taxRate: taxMeta?.rate ?? null,
           expectedLineDeliveryDate: line.expectedLineDeliveryDate ?? null,
           comments: line.comments ?? null,
           lineSubtotal,
@@ -314,6 +331,9 @@ export async function updatePurchaseOrder(id: number, data: UpdatePurchaseOrderD
             orderedQty: l.orderedQty,
             unitCost: l.unitCost,
             taxId: l.taxId,
+            taxName: l.taxName,
+            taxType: l.taxType,
+            taxRate: l.taxRate,
             expectedLineDeliveryDate: parseDateOnly(l.expectedLineDeliveryDate),
             comments: l.comments,
             receivedQty: 0,

@@ -48,10 +48,11 @@ export const categories = mysqlTable(
   "categories",
   {
     id: int().autoincrement().primaryKey(),
-    name: varchar({ length: 255 }).notNull(),
-    slug: varchar({ length: 255 }).notNull(),
-    description: text(),
-    parentId: int(),
+      name: varchar({ length: 255 }).notNull(),
+      slug: varchar({ length: 255 }).notNull(),
+      description: text(),
+      imageUrl: varchar({ length: 1000 }),
+      parentId: int(),
     status: mysqlEnum(["active", "inactive"]).default("active"),
     createdAt: timestamp()
       .default(sql`CURRENT_TIMESTAMP`)
@@ -816,6 +817,7 @@ export const products = mysqlTable(
       .charSet("utf8mb4")
       .collate("utf8mb4_unicode_ci")
       .notNull(),
+    isFeatured: boolean().default(false).notNull(),
   },
   (table) => [
     // NOTE: FULLTEXT index on products.name is applied via SQL migration because
@@ -1018,6 +1020,11 @@ export const purchaseorderlines = mysqlTable(
     orderedQty: int().notNull(),
     unitCost: decimal({ precision: 15, scale: 2, mode: "number" }).notNull(),
     taxId: int(),
+    taxName: varchar({ length: 255 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci"),
+    taxType: varchar({ length: 50 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    taxRate: decimal({ precision: 10, scale: 4, mode: "number" }),
     expectedLineDeliveryDate: date(),
     comments: text().charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
     receivedQty: int().default(0).notNull(),
@@ -1540,6 +1547,8 @@ export const taxes = mysqlTable(
     type: mysqlEnum(["percentage", "fixed"]).default("percentage").notNull(),
     status: mysqlEnum(["active", "inactive"]).default("active").notNull(),
     countryId: bigint({ unsigned: true, mode: "number" }),
+    validFrom: datetime(),
+    validTo: datetime(),
     createdAt: datetime().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -1655,6 +1664,18 @@ export const users = mysqlTable(
     mfaSecretEnc: blob({ mode: "buffer" }),
     emailVerifiedAt: datetime(),
     phoneVerifiedAt: datetime(),
+    defaultShippingFullName: varchar({ length: 255 }),
+    defaultShippingPhone: varchar({ length: 50 }),
+    defaultShippingEmail: varchar({ length: 255 }),
+    defaultShippingCountry: varchar({ length: 100 }),
+    defaultShippingCountryId: int(),
+    defaultShippingState: varchar({ length: 100 }),
+    defaultShippingStateId: int(),
+    defaultShippingCity: varchar({ length: 100 }),
+    defaultShippingCityId: int(),
+    defaultShippingAddressLine1: varchar({ length: 255 }),
+    defaultShippingAddressLine2: varchar({ length: 255 }),
+    defaultShippingPostalCode: varchar({ length: 50 }),
     googleSub: varchar({ length: 64 }),
     createdAt: timestamp()
       .default(sql`CURRENT_TIMESTAMP`)
@@ -1874,9 +1895,287 @@ export const cartitems = mysqlTable(
   ]
 );
 
+export const wishlistitems = mysqlTable(
+  "wishlistitems",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    userId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    productId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    addedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniqWishlistUserProduct").on(table.userId, table.productId),
+    index("idxWishlistUser").on(table.userId),
+    index("idxWishlistProduct").on(table.productId),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "fkWishlistItemsUser",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.productId],
+      foreignColumns: [products.id],
+      name: "fkWishlistItemsProduct",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+  ]
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Audit Logs - Track sensitive admin operations
 // ─────────────────────────────────────────────────────────────────────────────
+
+export const orders = mysqlTable(
+  "orders",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    orderNumber: varchar({ length: 50 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    userId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    status: mysqlEnum([
+      "pending_confirmation",
+      "confirmed",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ])
+      .default("pending_confirmation")
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    paymentMethod: varchar({ length: 50 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    paymentStatus: mysqlEnum([
+      "unpaid",
+      "pending",
+      "paid",
+      "failed",
+      "cancelled",
+      "refunded",
+      "partially_refunded",
+    ])
+      .default("unpaid")
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    paymentProvider: varchar({ length: 100 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    paymentReference: varchar({ length: 255 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    currency: char({ length: 3 }).notNull(),
+    subtotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    discountTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    shippingTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    taxTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    grandTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    shippingMethodCode: varchar({ length: 100 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci"),
+    couponCode: varchar({ length: 100 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    notes: text().charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    shippingFullName: varchar({ length: 255 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    shippingPhone: varchar({ length: 50 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    shippingEmail: varchar({ length: 255 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    shippingCountry: varchar({ length: 100 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    shippingState: varchar({ length: 100 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    shippingCity: varchar({ length: 100 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    shippingAddressLine1: varchar({ length: 255 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    shippingAddressLine2: varchar({ length: 255 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    shippingPostalCode: varchar({ length: 50 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    billingFullName: varchar({ length: 255 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    billingPhone: varchar({ length: 50 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    billingEmail: varchar({ length: 255 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    billingCountry: varchar({ length: 100 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    billingState: varchar({ length: 100 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    billingCity: varchar({ length: 100 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    billingAddressLine1: varchar({ length: 255 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    billingAddressLine2: varchar({ length: 255 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    billingPostalCode: varchar({ length: 50 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    placedAt: datetime().notNull(),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniqOrderNumber").on(table.orderNumber),
+    index("idxOrdersUserCreatedAt").on(table.userId, table.createdAt),
+    index("idxOrdersStatusCreatedAt").on(table.status, table.createdAt),
+    index("idxOrdersPlacedAt").on(table.placedAt),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "fkOrdersUser",
+    })
+      .onUpdate("restrict")
+      .onDelete("restrict"),
+  ]
+);
+
+export const orderitems = mysqlTable(
+  "orderitems",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    orderId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    productId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    productVariantId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    sku: varchar({ length: 100 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    productName: varchar({ length: 255 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    variantName: varchar({ length: 255 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    imageSrc: varchar({ length: 1024 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    unitPrice: decimal({ precision: 15, scale: 2, mode: "number" }).notNull(),
+    quantity: int().notNull(),
+    lineTotal: decimal({ precision: 15, scale: 2, mode: "number" }).notNull(),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idxOrderItemsOrder").on(table.orderId),
+    index("idxOrderItemsVariant").on(table.productVariantId),
+    foreignKey({
+      columns: [table.orderId],
+      foreignColumns: [orders.id],
+      name: "fkOrderItemsOrder",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.productId],
+      foreignColumns: [products.id],
+      name: "fkOrderItemsProduct",
+    })
+      .onUpdate("restrict")
+      .onDelete("restrict"),
+    foreignKey({
+      columns: [table.productVariantId],
+      foreignColumns: [productvariants.id],
+      name: "fkOrderItemsVariant",
+    })
+      .onUpdate("restrict")
+      .onDelete("restrict"),
+  ]
+);
+
+export const orderstatushistory = mysqlTable(
+  "orderstatushistory",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    orderId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    fromStatus: varchar({ length: 50 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    toStatus: varchar({ length: 50 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    reason: varchar({ length: 500 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    actorUserId: bigint({ unsigned: true, mode: "number" }),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idxOrderStatusHistoryOrder").on(table.orderId),
+    index("idxOrderStatusHistoryCreatedAt").on(table.createdAt),
+    foreignKey({
+      columns: [table.orderId],
+      foreignColumns: [orders.id],
+      name: "fkOrderStatusHistoryOrder",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.actorUserId],
+      foreignColumns: [users.id],
+      name: "fkOrderStatusHistoryActor",
+    })
+      .onUpdate("restrict")
+      .onDelete("set null"),
+  ]
+);
+
+export const ordertaxlines = mysqlTable(
+  "ordertaxlines",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    orderId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    taxId: int(),
+    taxName: varchar({ length: 255 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci").notNull(),
+    taxType: varchar({ length: 50 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci").notNull(),
+    taxRate: decimal({ precision: 10, scale: 4, mode: "number" }).notNull(),
+    countryId: bigint({ unsigned: true, mode: "number" }),
+    amount: decimal({ precision: 15, scale: 2, mode: "number" }).notNull(),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idxOrderTaxLinesOrder").on(table.orderId),
+    index("idxOrderTaxLinesTaxId").on(table.taxId),
+    foreignKey({
+      columns: [table.orderId],
+      foreignColumns: [orders.id],
+      name: "fkOrderTaxLinesOrder",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.taxId],
+      foreignColumns: [taxes.id],
+      name: "fkOrderTaxLinesTax",
+    })
+      .onUpdate("set null")
+      .onDelete("set null"),
+  ]
+);
 
 export const auditlogs = mysqlTable(
   "auditlogs",

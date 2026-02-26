@@ -2,15 +2,17 @@
 
 import { useState } from 'react';
 
-import { AlertTriangle, Search } from 'lucide-react';
+import { AlertTriangle, DollarSign, MapPin, Package, Search, TrendingUp } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
-import { useGetStockLevels } from '@/hooks/useStockQueries';
+import { useDefaultCurrency } from '@/hooks/useDefaultCurrency';
+import { useGetStockLevels, useGetStockSummary } from '@/hooks/useStockQueries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { ColumnVisibilityMenu } from '@/ui/column-visibility-menu';
 import { Input } from '@/ui/input';
+import { StatsCards } from '@/ui/stats-cards';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/tooltip';
@@ -42,6 +44,8 @@ export default function StockPage() {
     limit: pageSize,
     search,
   });
+  const { data: summary } = useGetStockSummary();
+  const { formatCurrency } = useDefaultCurrency();
 
   const items = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
@@ -55,6 +59,28 @@ export default function StockPage() {
     (count, column) => count + (isColumnVisible(column.id) ? 1 : 0),
     0,
   );
+  const statItems = [
+    {
+      label: 'Number of stocks',
+      value: String(summary?.locationCount ?? 0),
+      icon: MapPin,
+    },
+    {
+      label: 'Products Quantity',
+      value: new Intl.NumberFormat().format(summary?.productsQuantity ?? 0),
+      icon: Package,
+    },
+    {
+      label: 'Total Stock Value',
+      value: formatCurrency(summary?.totalStockValue ?? 0),
+      icon: DollarSign,
+    },
+    {
+      label: 'Expected Revenue',
+      value: formatCurrency(summary?.expectedRevenue ?? 0),
+      icon: TrendingUp,
+    },
+  ];
 
   return (
     <PermissionGuard requiredPermission="stock.read">
@@ -63,10 +89,13 @@ export default function StockPage() {
           <CardTitle>Stock Levels</CardTitle>
         </CardHeader>
         <CardContent>
+          <StatsCards data={statItems} />
+
           <div className="mb-6 flex items-center justify-between gap-4">
             <div className="relative max-w-sm flex-1">
               <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
               <Input
+                aria-label="Search stock levels"
                 placeholder="Search by SKU, product, or location..."
                 className="pl-9"
                 value={search}

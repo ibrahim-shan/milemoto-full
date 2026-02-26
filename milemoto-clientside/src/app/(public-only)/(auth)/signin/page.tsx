@@ -65,6 +65,41 @@ export default function SignInPage() {
   const nextUrl =
     rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/account';
 
+  const resolvePostAuthNext = () => {
+    if (nextUrl !== '/account') {
+      try {
+        window.sessionStorage.setItem('mm_post_auth_next', nextUrl);
+      } catch {}
+      return nextUrl;
+    }
+    try {
+      const stored = window.sessionStorage.getItem('mm_post_auth_next');
+      if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
+        return stored;
+      }
+    } catch {
+      // ignore storage access issues
+    }
+    return '/account';
+  };
+
+  const clearPostAuthNext = () => {
+    try {
+      window.sessionStorage.removeItem('mm_post_auth_next');
+    } catch {
+      // ignore storage access issues
+    }
+  };
+
+  useEffect(() => {
+    if (nextUrl === '/account') return;
+    try {
+      window.sessionStorage.setItem('mm_post_auth_next', nextUrl);
+    } catch {
+      // ignore storage access issues
+    }
+  }, [nextUrl]);
+
   // --- NEW: Handle MFA challenges from Google (on page load) ---
   useEffect(() => {
     // Check for the *new* param name we'll set in the Google handler
@@ -94,6 +129,19 @@ export default function SignInPage() {
     }
   }, [search]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const notice = window.sessionStorage.getItem('mm_post_signin_notice');
+      if (notice === 'checkout_auth_required') {
+        window.sessionStorage.removeItem('mm_post_signin_notice');
+        toast.info('Please sign in or create an account to continue checkout.');
+      }
+    } catch {
+      // ignore storage access issues
+    }
+  }, []);
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
@@ -117,7 +165,7 @@ export default function SignInPage() {
         // MFA is required. Instead of redirecting, set the state.
         setMfaChallenge({
           challengeId: res.challengeId,
-          next: nextUrl,
+          next: resolvePostAuthNext(),
         });
         // We stay on this page, so reset loading
         setLoading(false);
@@ -131,7 +179,9 @@ export default function SignInPage() {
         })();
         queryClient.removeQueries({ queryKey: ['my-permissions'] });
         queryClient.invalidateQueries({ queryKey: ['my-permissions'] });
-        router.replace(nextUrl);
+        const finalNext = resolvePostAuthNext();
+        clearPostAuthNext();
+        router.replace(finalNext);
         return;
       }
       // --- END OF CHANGE ---
@@ -239,7 +289,12 @@ export default function SignInPage() {
               <MfaPrompt
                 challengeId={mfaChallenge.challengeId}
                 onSuccess={() => {
-                  router.replace(mfaChallenge.next);
+                  const finalNext =
+                    mfaChallenge.next && mfaChallenge.next.startsWith('/')
+                      ? mfaChallenge.next
+                      : resolvePostAuthNext();
+                  clearPostAuthNext();
+                  router.replace(finalNext);
                 }}
               />
             ) : (
@@ -392,7 +447,7 @@ export default function SignInPage() {
                   <p className="text-muted-foreground mt-4 text-center text-sm">
                     Don&apos;t have an account?
                     <Link
-                      href="/signup"
+                      href={nextUrl ? `/signup?next=${encodeURIComponent(nextUrl)}` : '/signup'}
                       className="text-primary underline underline-offset-4"
                     >
                       Create one

@@ -6,6 +6,7 @@ import { useDefaultCurrency } from '@/hooks/useDefaultCurrency';
 import { useGetAllCountries } from '@/hooks/useLocationQueries';
 import { useCreateTax, useUpdateTax, type Tax } from '@/hooks/useTaxQueries';
 import { Button } from '@/ui/button';
+import { Checkbox } from '@/ui/checkbox';
 import { GeneralCombobox } from '@/ui/combobox';
 import {
   Dialog,
@@ -27,6 +28,8 @@ type TaxFormData = {
   type: 'percentage' | 'fixed';
   status: 'active' | 'inactive';
   countryId: string; // Use string for combobox, convert to number on submit
+  validFrom: string;
+  validTo: string;
 };
 
 const INITIAL_FORM: TaxFormData = {
@@ -35,6 +38,8 @@ const INITIAL_FORM: TaxFormData = {
   type: 'percentage',
   status: 'active',
   countryId: '', // Empty string means global (null in database)
+  validFrom: '',
+  validTo: '',
 };
 
 // ==== Sub-components ====
@@ -42,17 +47,19 @@ const INITIAL_FORM: TaxFormData = {
 function FormField({
   id,
   label,
+  required = true,
   children,
 }: {
   id: string;
   label: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid grid-cols-4 items-center gap-4">
       <Label
         htmlFor={id}
-        required={true}
+        required={required}
         className="text-right"
       >
         {label}
@@ -84,18 +91,24 @@ export function TaxDialog({
             type: tax.type,
             status: tax.status,
             countryId: tax.countryId ? String(tax.countryId) : '',
+            validFrom: toDateInputValue(tax.validFrom),
+            validTo: toDateInputValue(tax.validTo),
           }
         : INITIAL_FORM,
     [tax],
   );
 
   const [formData, setFormData] = useState<TaxFormData>(initialData);
+  const [useEffectiveDateWindow, setUseEffectiveDateWindow] = useState(
+    Boolean(initialData.validFrom || initialData.validTo),
+  );
 
   const createMutation = useCreateTax();
   const updateMutation = useUpdateTax();
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialData);
+  const isAlwaysActive = !useEffectiveDateWindow;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +117,14 @@ export function TaxDialog({
       ...formData,
       rate: parseFloat(formData.rate),
       countryId: formData.countryId ? parseInt(formData.countryId) : null, // Convert to number or null
+      validFrom:
+        useEffectiveDateWindow && formData.validFrom
+          ? new Date(`${formData.validFrom}T00:00:00.000Z`)
+          : null,
+      validTo:
+        useEffectiveDateWindow && formData.validTo
+          ? new Date(`${formData.validTo}T23:59:59.999Z`)
+          : null,
     };
 
     try {
@@ -232,6 +253,64 @@ export function TaxDialog({
               </SelectContent>
             </Select>
           </FormField>
+          <FormField
+            id="validFrom"
+            label="Valid From"
+            required={false}
+          >
+            <Input
+              id="validFrom"
+              type="date"
+              value={formData.validFrom}
+              disabled={isAlwaysActive}
+              onChange={e => setFormData({ ...formData, validFrom: e.target.value })}
+            />
+          </FormField>
+          <FormField
+            id="validTo"
+            label="Valid To"
+            required={false}
+          >
+            <Input
+              id="validTo"
+              type="date"
+              value={formData.validTo}
+              disabled={isAlwaysActive}
+              onChange={e => setFormData({ ...formData, validTo: e.target.value })}
+            />
+          </FormField>
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label
+              htmlFor="alwaysActiveWindow"
+              required={false}
+              className="pt-1 text-left"
+            >
+              Effective Dates
+            </Label>
+            <div className="col-span-3 space-y-2">
+              <label
+                htmlFor="alwaysActiveWindow"
+                className="flex cursor-pointer items-center gap-2 text-sm"
+              >
+                <Checkbox
+                  id="alwaysActiveWindow"
+                  checked={isAlwaysActive}
+                  onCheckedChange={checked => {
+                    if (checked === true) {
+                      setUseEffectiveDateWindow(false);
+                      setFormData(prev => ({ ...prev, validFrom: '', validTo: '' }));
+                    } else if (checked === false) {
+                      setUseEffectiveDateWindow(true);
+                    }
+                  }}
+                />
+                <span>Always active (no effective date window)</span>
+              </label>
+              <p className="text-muted-foreground text-xs">
+                If checked, both dates stay empty and the rule is always active.
+              </p>
+            </div>
+          </div>
         </form>
         <DialogFooter>
           <Button
@@ -253,4 +332,14 @@ export function TaxDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function toDateInputValue(value: string | Date | null | undefined): string {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

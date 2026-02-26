@@ -4,6 +4,7 @@ import { httpError } from '../../utils/error.js';
 import {
   listStockLevels,
   listStockMovements,
+  getStockSummary,
   createStockAdjustment,
   createStockTransfer,
 } from '../../services/stock.service.js';
@@ -26,6 +27,15 @@ function getAuditContext(req: Request): AuditContext {
     userAgent: req.get('user-agent') ?? undefined,
   };
 }
+
+router.get(
+  '/summary',
+  requirePermission('stock.read'),
+  asyncHandler(async (_req, res) => {
+    const result = await getStockSummary();
+    res.json(result);
+  })
+);
 
 router.get(
   '/',

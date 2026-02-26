@@ -3,6 +3,7 @@
 
 import { Loader2 } from 'lucide-react';
 
+import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import type { StorefrontProductListItem } from '@/types';
 import { ProductCard } from '@/ui/cards/ProductCard';
 
@@ -38,9 +39,12 @@ export function ProductsGrid({
           key={p.id}
           title={p.name}
           href={`/product/${p.slug}`}
-          imageSrc={p.imageSrc || '/images/placeholder.png'}
+          imageSrc={p.imageSrc || IMAGE_PLACEHOLDERS.product4x3}
           imageAlt={p.name}
           priceMinor={(p.startingPrice ?? 0) * 100}
+          productSlug={p.slug}
+          quickAddVariantId={p.singleVariantId ?? undefined}
+          quickAddStock={p.singleVariantAvailable ?? undefined}
           variant={cardVariant}
           onAdd={() => onAdd?.(p)}
           imgPriority={i === 0}

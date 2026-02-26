@@ -9,7 +9,7 @@ import { db } from '../../../db/drizzle.js';
 import { toUserId } from './ids.js';
 
 // (Email helpers)
-export async function sendNewVerificationEmail(userId: string, email: string) {
+export async function sendNewVerificationEmail(userId: string, email: string, next?: string) {
   try {
     const userIdNum = toUserId(userId);
     const token = randToken(32);
@@ -28,7 +28,11 @@ export async function sendNewVerificationEmail(userId: string, email: string) {
       });
     });
 
-    const verifyUrl = `${env.FRONTEND_BASE_URL}/verify-email?token=${token}`;
+    const qs = new URLSearchParams({ token });
+    if (next && next.startsWith('/') && !next.startsWith('//')) {
+      qs.set('next', next);
+    }
+    const verifyUrl = `${env.FRONTEND_BASE_URL}/verify-email?${qs.toString()}`;
 
     // In development: always log the URL to the console so you can
     // verify accounts without needing a mail server configured.

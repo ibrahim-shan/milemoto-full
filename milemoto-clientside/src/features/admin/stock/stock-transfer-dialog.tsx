@@ -92,9 +92,10 @@ export function StockTransferDialog({ open, onOpenChange }: StockTransferDialogP
           className="space-y-4 py-2"
         >
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label>Product Variant</Label>
+            <Label htmlFor="transfer-product-variant">Product Variant</Label>
             <div className="col-span-3">
               <GeneralCombobox
+                id="transfer-product-variant"
                 placeholder="Select variant"
                 value={productVariantId ? String(productVariantId) : ''}
                 onChange={val => setProductVariantId(Number(val))}
@@ -109,9 +110,10 @@ export function StockTransferDialog({ open, onOpenChange }: StockTransferDialogP
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label>From Location</Label>
+            <Label htmlFor="transfer-from-location">From Location</Label>
             <div className="col-span-3">
               <GeneralCombobox
+                id="transfer-from-location"
                 placeholder="Select source location"
                 value={fromLocationId ? String(fromLocationId) : ''}
                 onChange={val => setFromLocationId(Number(val))}
@@ -126,9 +128,10 @@ export function StockTransferDialog({ open, onOpenChange }: StockTransferDialogP
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label>To Location</Label>
+            <Label htmlFor="transfer-to-location">To Location</Label>
             <div className="col-span-3">
               <GeneralCombobox
+                id="transfer-to-location"
                 placeholder="Select destination location"
                 value={toLocationId ? String(toLocationId) : ''}
                 onChange={val => setToLocationId(Number(val))}

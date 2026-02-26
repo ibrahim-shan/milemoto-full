@@ -46,6 +46,7 @@ export const productSelect = {
   shortDescription: products.shortDescription,
   longDescription: products.longDescription,
   status: products.status,
+  isFeatured: products.isFeatured,
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
 };

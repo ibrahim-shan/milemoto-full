@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/hooks/useAuth';
 
@@ -24,6 +24,8 @@ function FullPageLoader() {
 export default function PublicOnlyLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
 
   useEffect(() => {
     // Wait for the auth state to be loaded
@@ -35,14 +37,18 @@ export default function PublicOnlyLayout({ children }: { children: React.ReactNo
     if (isAuthenticated) {
       const u = user as { role?: string };
       const r = String(u?.role || '').toLowerCase();
+      const rawNext = search.get('next');
+      const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
 
       if (r === 'admin' || r.includes('admin')) {
         router.replace('/admin');
+      } else if ((pathname === '/signin' || pathname === '/signup') && next) {
+        router.replace(next);
       } else {
         router.replace('/account');
       }
     }
-  }, [isAuthenticated, loading, router, user]);
+  }, [isAuthenticated, loading, pathname, router, search, user]);
 
   // 1. If auth is loading, show a full-page loader.
   // 2. If user is authenticated, we're about to redirect,

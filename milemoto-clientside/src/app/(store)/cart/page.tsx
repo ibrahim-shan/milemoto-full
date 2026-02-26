@@ -2,21 +2,24 @@
 'use client';
 
 import { useMemo } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 
 import { AlertTriangle, ArrowLeft, ShoppingCart, X } from 'lucide-react';
 
 import { useCart } from '@/features/cart/cart-context';
 import { Breadcrumbs } from '@/features/navigation/Breadcrumbs';
+import { useAuth } from '@/hooks/useAuth';
 import { formatUSD } from '@/lib/formatPrice';
+import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import { Button } from '@/ui/button';
+import { FallbackImage } from '@/ui/fallback-image';
 import { Quantity } from '@/ui/Quantity';
 
 const fmt = (n: number) => formatUSD(n, { locale: 'en-US' });
 
 export default function CartPage() {
   const { items, removeItem, setItemQty } = useCart();
+  const { loading: authLoading, isAuthenticated } = useAuth();
 
   const subMinor = useMemo(() => items.reduce((s, it) => s + it.priceMinor * it.qty, 0), [items]);
 
@@ -71,8 +74,9 @@ export default function CartPage() {
                     {/* product + inline remove on mobile */}
                     <div className="flex items-center gap-3">
                       <div className="border-border/60 bg-muted/40 relative h-14 w-14 overflow-hidden rounded-md border">
-                        <Image
+                        <FallbackImage
                           src={it.imageSrc}
+                          fallbackSrc={IMAGE_PLACEHOLDERS.product4x3}
                           alt={it.title}
                           fill
                           sizes="56px"
@@ -200,6 +204,18 @@ export default function CartPage() {
                   justify="center"
                   size="lg"
                   fullWidth
+                  onClick={e => {
+                    if (!authLoading && !isAuthenticated) {
+                      e.preventDefault();
+                      try {
+                        window.sessionStorage.setItem(
+                          'mm_post_signin_notice',
+                          'checkout_auth_required',
+                        );
+                      } catch {}
+                      window.location.assign('/signin?next=/checkout');
+                    }
+                  }}
                 >
                   Proceed To Checkout
                 </Button>

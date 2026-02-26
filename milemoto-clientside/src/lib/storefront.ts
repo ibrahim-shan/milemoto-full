@@ -4,6 +4,7 @@ import { get } from './api';
 import type {
   PaginatedStorefrontProducts,
   StorefrontFiltersResponse,
+  StorefrontListQueryDto,
   StorefrontProductDetail,
 } from '@/types';
 
@@ -44,6 +45,7 @@ export function fetchProducts(
     limit?: number | undefined;
     search?: string | undefined;
     sort?: 'newest' | 'price-asc' | 'price-desc' | 'name-asc' | undefined;
+    isFeatured?: boolean | undefined;
     categoryId?: number | number[] | undefined;
     subCategoryId?: number | number[] | undefined;
     brandId?: number | number[] | undefined;
@@ -59,6 +61,7 @@ export function fetchProducts(
     if (params.limit) searchParams.set('limit', String(params.limit));
     if (params.search) searchParams.set('search', params.search);
     if (params.sort) searchParams.set('sort', params.sort);
+    if (params.isFeatured !== undefined) searchParams.set('isFeatured', String(params.isFeatured));
     if (params.minPrice !== undefined) searchParams.set('minPrice', String(params.minPrice));
     if (params.maxPrice !== undefined) searchParams.set('maxPrice', String(params.maxPrice));
 
@@ -82,6 +85,37 @@ export function fetchProducts(
   return get<PaginatedStorefrontProducts>(`${BASE}/products${qs ? `?${qs}` : ''}`, init ?? {});
 }
 
+export function serverFetchProducts(
+  params?: StorefrontListQueryDto,
+  revalidate = 60,
+): Promise<PaginatedStorefrontProducts> {
+  const searchParams = new URLSearchParams();
+  if (params) {
+    if (params.page) searchParams.set('page', String(params.page));
+    if (params.limit) searchParams.set('limit', String(params.limit));
+    if (params.search) searchParams.set('search', params.search);
+    if (params.sort) searchParams.set('sort', params.sort);
+    if (params.isFeatured !== undefined) searchParams.set('isFeatured', String(params.isFeatured));
+    if (params.minPrice !== undefined) searchParams.set('minPrice', String(params.minPrice));
+    if (params.maxPrice !== undefined) searchParams.set('maxPrice', String(params.maxPrice));
+
+    const arrayParams: [string, number | number[] | undefined][] = [
+      ['categoryId', params.categoryId],
+      ['subCategoryId', params.subCategoryId],
+      ['brandId', params.brandId],
+      ['gradeId', params.gradeId],
+    ];
+    for (const [key, val] of arrayParams) {
+      if (val === undefined) continue;
+      const ids = Array.isArray(val) ? val : [val];
+      for (const id of ids) searchParams.append(key, String(id));
+    }
+  }
+
+  const qs = searchParams.toString();
+  return serverGet<PaginatedStorefrontProducts>(`${BASE}/products${qs ? `?${qs}` : ''}`, revalidate);
+}
+
 /** Fetch a single product by slug */
 export function fetchProductBySlug(slug: string): Promise<StorefrontProductDetail> {
   return get<StorefrontProductDetail>(`${BASE}/products/${encodeURIComponent(slug)}`);
@@ -90,6 +124,10 @@ export function fetchProductBySlug(slug: string): Promise<StorefrontProductDetai
 /** Fetch available filter options (categories, brands, grades) */
 export function fetchFilters(): Promise<StorefrontFiltersResponse> {
   return get<StorefrontFiltersResponse>(`${BASE}/filters`);
+}
+
+export function serverFetchFilters(revalidate = 60): Promise<StorefrontFiltersResponse> {
+  return serverGet<StorefrontFiltersResponse>(`${BASE}/filters`, revalidate);
 }
 
 /**

@@ -4,7 +4,11 @@ import { app } from '../../src/app.js';
 import { createCatalogAdmin, cleanupCatalogAuth } from './helpers.js';
 
 let accessToken = '';
-const authCleanup = { userIds: [] as number[], roleIds: [] as number[], permissionIds: [] as number[] };
+const authCleanup = {
+  userIds: [] as number[],
+  roleIds: [] as number[],
+  permissionIds: [] as number[],
+};
 
 let variantId: number | null = null;
 let valueId: number | null = null;
@@ -32,9 +36,7 @@ describe('catalog variants', () => {
       .send({
         name: `Color ${Date.now()}`,
         slug: `color-${Date.now()}`,
-        values: [
-          { value: 'Red', slug: `red-${Date.now()}`, status: 'active' },
-        ],
+        values: [{ value: 'Red', slug: `red-${Date.now()}`, status: 'active' }],
       });
 
     expect(res.status).toBe(201);
@@ -63,6 +65,28 @@ describe('catalog variants', () => {
 
     expect(res.status).toBe(201);
     expect(res.body?.id).toBeTruthy();
+  });
+
+  it('lists variants', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/variants')
+      .query({ limit: 50 })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    const items = res.body?.items ?? res.body;
+    const ids = (items ?? []).map((v: { id: number }) => v.id);
+    expect(ids).toContain(variantId);
+  });
+
+  it('gets a variant by id', async () => {
+    if (!variantId) throw new Error('Missing variant id');
+    const res = await request(app)
+      .get(`/api/v1/admin/variants/${variantId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(Number(res.body?.id)).toBe(variantId);
   });
 
   it('deletes a variant value', async () => {

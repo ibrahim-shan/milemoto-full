@@ -74,6 +74,7 @@ export async function listProducts(query: ListQueryDto) {
         )
       : undefined,
     query.status ? eq(products.status, query.status) : undefined,
+    query.isFeatured !== undefined ? eq(products.isFeatured, query.isFeatured) : undefined,
     query.search
       ? (() => {
           const search = query.search.trim();

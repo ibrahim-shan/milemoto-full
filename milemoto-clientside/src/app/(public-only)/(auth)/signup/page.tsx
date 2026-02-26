@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldCheck, User } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,6 +41,9 @@ export default function SignUpPage() {
   const [rememberUI] = useState(false);
 
   const router = useRouter();
+  const search = useSearchParams();
+  const rawNext = search.get('next');
+  const nextUrl = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
 
   const pwdScore = useMemo(() => scorePassword(password), [password]);
 
@@ -85,9 +88,17 @@ export default function SignUpPage() {
         ...(phone ? { phone } : {}),
         password,
         remember,
+        ...(nextUrl ? { next: nextUrl } : {}),
       });
       toast.success('Account created! Please check your email to verify your account.');
-      router.push('/signin');
+      if (nextUrl && typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('mm_post_verify_next', nextUrl);
+        } catch {
+          // ignore storage access issues
+        }
+      }
+      router.push(nextUrl ? `/signin?next=${encodeURIComponent(nextUrl)}` : '/signin');
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message || 'An error occurred.');
@@ -423,7 +434,7 @@ export default function SignUpPage() {
               <p className="text-muted-foreground mt-4 text-center text-sm">
                 Already have an account?{' '}
                 <Link
-                  href="/signin"
+                  href={nextUrl ? `/signin?next=${encodeURIComponent(nextUrl)}` : '/signin'}
                   className="text-primary underline underline-offset-4"
                 >
                   Sign in

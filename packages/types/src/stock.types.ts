@@ -49,10 +49,18 @@ export interface StockMovementResponse extends ApiModel<StockMovement> {
   variantName?: string;
   productName?: string;
   stockLocationName?: string;
+  referenceDisplay?: string;
 }
 
 export type PaginatedStockMovementResponse =
   PaginatedResponse<StockMovementResponse>;
+
+export interface StockSummaryResponse {
+  locationCount: number;
+  productsQuantity: number;
+  totalStockValue: number;
+  expectedRevenue: number;
+}
 
 // ==== Stock Adjustment Input ====
 

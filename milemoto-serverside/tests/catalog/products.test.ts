@@ -4,7 +4,11 @@ import { app } from '../../src/app.js';
 import { createCatalogAdmin, cleanupCatalogAuth } from './helpers.js';
 
 let accessToken = '';
-const authCleanup = { userIds: [] as number[], roleIds: [] as number[], permissionIds: [] as number[] };
+const authCleanup = {
+  userIds: [] as number[],
+  roleIds: [] as number[],
+  permissionIds: [] as number[],
+};
 
 let brandId: number | null = null;
 let rootCategoryId: number | null = null;
@@ -161,5 +165,27 @@ describe('catalog products', () => {
 
     expect(res.status).toBe(200);
     expect(res.body?.name).toContain('Updated');
+  });
+
+  it('lists all product variants', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/products/variants')
+      .query({ limit: 50 })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('items');
+    expect(Array.isArray(res.body.items)).toBe(true);
+  });
+
+  it('deletes a product', async () => {
+    if (!productId) throw new Error('Missing product id');
+    const res = await request(app)
+      .delete(`/api/v1/admin/products/${productId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body?.success).toBe(true);
+    productId = null;
   });
 });

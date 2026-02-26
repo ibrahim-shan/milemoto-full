@@ -1,19 +1,36 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { Heart } from 'lucide-react';
 
 import { Breadcrumbs } from '@/features/navigation/Breadcrumbs';
 import { BuyActions } from '@/features/product/components/BuyActions';
 import { ProductGallery } from '@/features/product/components/ProductGallery';
 import { ProductTabs } from '@/features/product/components/ProductTabs';
+import { useWishlist } from '@/features/wishlist/wishlist-context';
 import { formatUSD } from '@/lib/formatPrice';
+import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import type { StorefrontProductDetail, StorefrontVariant } from '@/types';
+
+function htmlToSafeText(value: string) {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 export function ProductClient({ product }: { product: StorefrontProductDetail }) {
   const [selectedVariant, setSelectedVariant] = useState<StorefrontVariant | null>(
     product.variants[0] ?? null,
   );
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const { isFavorite, toggleItem } = useWishlist();
 
   // Build combined image list: base images first, then each variant's image
   const { allImages, variantImageIndex } = useMemo(() => {
@@ -37,7 +54,7 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
     }
 
     if (imgs.length === 0) {
-      imgs.push({ src: '/images/placeholder.png', alt: product.name });
+      imgs.push({ src: IMAGE_PLACEHOLDERS.product4x3, alt: product.name });
     }
 
     return { allImages: imgs, variantImageIndex: idxMap };
@@ -55,7 +72,12 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
   const variant = selectedVariant ?? product.variants[0];
   const price = variant?.price ?? 0;
   const stock = variant?.available ?? 0;
-  const cartImageSrc = variant?.imagePath ?? allImages[0]?.src ?? '/images/placeholder.png';
+  const cartImageSrc = variant?.imagePath ?? allImages[0]?.src ?? IMAGE_PLACEHOLDERS.product4x3;
+  const safeLongDescription = useMemo(
+    () => (product.longDescription ? htmlToSafeText(product.longDescription) : ''),
+    [product.longDescription],
+  );
+  const favorite = isFavorite(`/product/${product.slug}`);
 
   return (
     <main className="bg-background text-foreground mx-auto min-h-dvh max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -80,7 +102,33 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
 
           {/* Right: details */}
           <article className="border-border/60 bg-card rounded-xl border p-6">
-            <h1 className="text-2xl font-bold tracking-tight">{product.name}</h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{product.name}</h1>
+              <button
+                type="button"
+                aria-label={favorite ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
+                title={favorite ? 'Remove from favorites' : 'Add to favorites'}
+                onClick={() =>
+                  toggleItem({
+                    href: `/product/${product.slug}`,
+                    title: product.name,
+                    imageSrc: cartImageSrc,
+                    imageAlt: product.name,
+                    priceMinor: price * 100,
+                  })
+                }
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                  favorite
+                    ? 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100'
+                    : 'border-border/60 bg-card text-foreground/80 hover:bg-muted/60 hover:text-foreground'
+                }`}
+              >
+                <Heart
+                  className={`h-4 w-4 ${favorite ? 'fill-current' : ''}`}
+                  aria-hidden
+                />
+              </button>
+            </div>
             {product.shortDescription && (
               <p className="text-foreground/70 mt-2 text-sm">{product.shortDescription}</p>
             )}
@@ -121,6 +169,12 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
               stock={stock}
               slug={product.slug}
               title={product.name}
+              {...(product.stockDisplayMode
+                ? { stockDisplayMode: product.stockDisplayMode }
+                : {})}
+              {...(product.lowStockThreshold !== undefined
+                ? { lowStockThreshold: product.lowStockThreshold }
+                : {})}
               {...(variant?.name ? { variantName: variant.name } : {})}
               priceMinor={price * 100}
               imageSrc={cartImageSrc}
@@ -175,10 +229,9 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
                   {
                     label: 'Description',
                     content: (
-                      <div
-                        className="prose dark:prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: product.longDescription }}
-                      />
+                      <div className="text-foreground/90 whitespace-pre-wrap text-sm leading-6">
+                        {safeLongDescription}
+                      </div>
                     ),
                   },
                 ]

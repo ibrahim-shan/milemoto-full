@@ -24,6 +24,8 @@ export async function listTaxes(params: ListQueryDto) {
         type: taxes.type,
         status: taxes.status,
         countryId: taxes.countryId,
+        validFrom: taxes.validFrom,
+        validTo: taxes.validTo,
         countryName: countries.name,
         createdAt: taxes.createdAt,
         updatedAt: taxes.updatedAt,

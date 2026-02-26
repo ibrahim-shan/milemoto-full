@@ -19,7 +19,9 @@ export async function createTax(data: CreateTaxDto) {
           eq(taxes.name, normalizedName),
           eq(taxes.type, data.type),
           eq(taxes.rate, data.rate),
-          sql`${taxes.countryId} <=> ${data.countryId ?? null}`
+          sql`${taxes.countryId} <=> ${data.countryId ?? null}`,
+          sql`${taxes.validFrom} <=> ${data.validFrom ?? null}`,
+          sql`${taxes.validTo} <=> ${data.validTo ?? null}`
         )
       )
       .limit(1);
@@ -37,6 +39,8 @@ export async function createTax(data: CreateTaxDto) {
       type: data.type,
       status: data.status,
       countryId: data.countryId ?? null,
+      validFrom: data.validFrom ?? null,
+      validTo: data.validTo ?? null,
     });
     const insertId =
       'insertId' in result
@@ -67,6 +71,8 @@ export async function updateTax(id: number, body: UpdateTaxDto) {
   if (body.type !== undefined) updates.type = body.type;
   if (body.status !== undefined) updates.status = body.status;
   if (body.countryId !== undefined) updates.countryId = body.countryId ?? null;
+  if (body.validFrom !== undefined) updates.validFrom = body.validFrom ?? null;
+  if (body.validTo !== undefined) updates.validTo = body.validTo ?? null;
 
   if (Object.keys(updates).length === 0) {
     return fetchTaxById(id);
@@ -78,6 +84,8 @@ export async function updateTax(id: number, body: UpdateTaxDto) {
     const nextRate = updates.rate ?? current.rate;
     const nextType = updates.type ?? current.type;
     const nextCountry = updates.countryId ?? current.countryId;
+    const nextValidFrom = updates.validFrom ?? current.validFrom ?? null;
+    const nextValidTo = updates.validTo ?? current.validTo ?? null;
 
     const [existingCombo] = await db
       .select({ id: taxes.id })
@@ -88,6 +96,8 @@ export async function updateTax(id: number, body: UpdateTaxDto) {
           eq(taxes.type, nextType),
           eq(taxes.rate, nextRate),
           sql`${taxes.countryId} <=> ${nextCountry ?? null}`,
+          sql`${taxes.validFrom} <=> ${nextValidFrom ?? null}`,
+          sql`${taxes.validTo} <=> ${nextValidTo ?? null}`,
           sql`${taxes.id} != ${id}`
         )
       )

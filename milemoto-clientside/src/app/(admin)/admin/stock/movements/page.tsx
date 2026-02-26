@@ -18,6 +18,20 @@ import { Input } from '@/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+function getReferenceHref(referenceType: string, referenceId: number) {
+  switch (referenceType) {
+    case 'goodsReceipt':
+      return `/admin/goods-receipts/${referenceId}`;
+    case 'customer_order':
+    case 'order':
+      return `/admin/orders/${referenceId}`;
+    case 'purchaseOrder':
+      return `/admin/purchase-orders/${referenceId}`;
+    default:
+      return null;
+  }
+}
+
 export default function StockMovementsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -47,6 +61,7 @@ export default function StockMovementsPage() {
             <div className="relative max-w-sm flex-1">
               <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
               <Input
+                aria-label="Search stock movements"
                 placeholder="Search by SKU, product, location, or reference..."
                 className="pl-9"
                 value={search}
@@ -160,22 +175,34 @@ export default function StockMovementsPage() {
                     </TableCell>
                     <TableCell>
                       {movement.referenceType && movement.referenceId ? (
-                        <Link
-                          href={
-                            movement.referenceType === 'goodsReceipt'
-                              ? `/admin/goods-receipts/${movement.referenceId}`
-                              : '#'
+                        (() => {
+                          const href = getReferenceHref(
+                            movement.referenceType,
+                            movement.referenceId,
+                          );
+                          if (!href) {
+                            return (
+                              <span className="text-xs">
+                                {movement.referenceDisplay ??
+                                  `${movement.referenceType} #${movement.referenceId}`}
+                              </span>
+                            );
                           }
-                          className="text-primary inline-flex items-center gap-1 text-xs underline-offset-4 hover:underline"
-                        >
-                          {movement.referenceType} #{movement.referenceId}
-                          {movement.referenceType === 'goodsReceipt' && (
-                            <ExternalLink
-                              className="h-3 w-3"
-                              aria-hidden
-                            />
-                          )}
-                        </Link>
+
+                          return (
+                            <Link
+                              href={href}
+                              className="text-primary inline-flex items-center gap-1 text-xs underline-offset-4 hover:underline"
+                            >
+                              {movement.referenceDisplay ??
+                                `${movement.referenceType} #${movement.referenceId}`}
+                              <ExternalLink
+                                className="h-3 w-3"
+                                aria-hidden
+                              />
+                            </Link>
+                          );
+                        })()
                       ) : (
                         <span className="text-muted-foreground text-xs">-</span>
                       )}

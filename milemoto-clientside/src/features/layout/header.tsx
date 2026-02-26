@@ -6,12 +6,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ShoppingCart, User as UserIcon } from 'lucide-react';
+import { Heart, ShoppingCart, User as UserIcon } from 'lucide-react';
 
 import { useCart } from '@/features/cart/cart-context';
 import { CartDrawer } from '@/features/cart/components/CartDrawer';
 import { DesktopSearchProvider, SearchButton } from '@/features/layout/desktop-search';
 import { MobileNav } from '@/features/layout/mobile-nav';
+import { useWishlist } from '@/features/wishlist/wishlist-context';
 import { useAuth } from '@/hooks/useAuth';
 
 function IconButton({
@@ -129,6 +130,7 @@ export function Header() {
   const { isAuthenticated, logout } = useAuth();
   const queryClient = useQueryClient();
   const { items, removeItem, clear } = useCart();
+  const { count: favoriteCount } = useWishlist();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true));
@@ -184,7 +186,7 @@ export function Header() {
 
       <DesktopSearchProvider>
         <div className={innerBar}>
-          <div className="min-w-[120px] justify-self-start">
+          <div className="min-w-30 justify-self-start">
             <Link
               href="/"
               aria-label="MileMoto Home"
@@ -218,7 +220,11 @@ export function Header() {
 
           <div className="flex min-w-[320px] items-center justify-end gap-2 justify-self-end">
             <SearchButton
-              {...(isHome ? { className: 'text-white/90 hover:bg-white/10 hover:text-white' } : {})}
+              className={
+                isHome
+                  ? 'inline-flex h-11 w-11 items-center justify-center rounded-md text-sm text-white/90 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:outline-none'
+                  : 'inline-flex h-11 w-11 items-center justify-center rounded-md text-sm text-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground focus:outline-none focus-visible:outline-none'
+              }
             />
             <span
               className={isHome ? 'h-5 w-px bg-white/30' : 'bg-border/70 h-5 w-px'}
@@ -251,6 +257,30 @@ export function Header() {
               className={isHome ? 'h-5 w-px bg-white/30' : 'bg-border/70 h-5 w-px'}
               aria-hidden="true"
             />
+            <IconButton
+              label="Favorites"
+              onClick={() => router.push('/favorites')}
+              variant={isHome ? 'home' : 'default'}
+            >
+              <span className="relative inline-flex">
+                <Heart
+                  aria-hidden
+                  className="h-5 w-5"
+                />
+                {mounted && favoriteCount > 0 && (
+                  <span
+                    aria-label={`${favoriteCount} items in favorites`}
+                    className="bg-rose-500 text-white absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none"
+                  >
+                    {favoriteCount > 99 ? '99+' : favoriteCount}
+                  </span>
+                )}
+              </span>
+            </IconButton>
+            <span
+              className={isHome ? 'h-5 w-px bg-white/30' : 'bg-border/70 h-5 w-px'}
+              aria-hidden="true"
+            />
             {/* <span
               className={isHome ? 'h-5 w-px bg-white/30' : 'bg-border/70 h-5 w-px'}
               aria-hidden="true"
@@ -274,6 +304,13 @@ export function Header() {
             onRemove={removeItem}
             onCheckout={() => {
               setCartOpen(false);
+              if (!isAuthenticated) {
+                try {
+                  window.sessionStorage.setItem('mm_post_signin_notice', 'checkout_auth_required');
+                } catch {}
+                location.assign('/signin?next=/checkout');
+                return;
+              }
               location.assign('/checkout');
             }}
           />

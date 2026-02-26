@@ -52,6 +52,7 @@ export default async function RootLayout({
           <Toaster
             position="top-right"
             richColors
+            offset={{ top: 80, right: 16 }}
           />
           <SplashProvider>
             <SiteChrome>{children}</SiteChrome>

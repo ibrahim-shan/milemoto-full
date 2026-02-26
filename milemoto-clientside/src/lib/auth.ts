@@ -11,6 +11,7 @@ import type {
   OkResponseDto,
   RefreshResponseDto,
   RegisterResponseDto,
+  UpdateUserAddressDto,
   UserDto,
 } from '@/types';
 
@@ -30,6 +31,7 @@ export type RegisterInput = {
   phone?: string | null;
   password: string;
   remember?: boolean;
+  next?: string;
 };
 
 export function register(input: RegisterInput): Promise<RegisterResponseDto> {
@@ -140,6 +142,12 @@ export function updateProfile(input: {
   phone?: string | null;
 }): Promise<UserDto> {
   return post<UserDto>(`${AUTH}/me/update`, input, {
+    headers: authz(),
+  });
+}
+
+export function updateMyAddress(input: UpdateUserAddressDto): Promise<UserDto> {
+  return post<UserDto>(`${AUTH}/me/address`, input, {
     headers: authz(),
   });
 }

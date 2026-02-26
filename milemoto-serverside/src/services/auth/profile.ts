@@ -1,4 +1,5 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
+import type { UpdateUserAddressDto } from '@milemoto/types';
 import { emailverifications, phoneverifications, users } from '@milemoto/types';
 import { db } from '../../db/drizzle.js';
 import { httpError } from '../../utils/error.js';
@@ -17,6 +18,18 @@ export async function getUserProfile(userId: string) {
       status: users.status,
       mfaEnabled: users.mfaEnabled,
       phoneVerifiedAt: users.phoneVerifiedAt,
+      defaultShippingFullName: users.defaultShippingFullName,
+      defaultShippingPhone: users.defaultShippingPhone,
+      defaultShippingEmail: users.defaultShippingEmail,
+      defaultShippingCountry: users.defaultShippingCountry,
+      defaultShippingCountryId: users.defaultShippingCountryId,
+      defaultShippingState: users.defaultShippingState,
+      defaultShippingStateId: users.defaultShippingStateId,
+      defaultShippingCity: users.defaultShippingCity,
+      defaultShippingCityId: users.defaultShippingCityId,
+      defaultShippingAddressLine1: users.defaultShippingAddressLine1,
+      defaultShippingAddressLine2: users.defaultShippingAddressLine2,
+      defaultShippingPostalCode: users.defaultShippingPostalCode,
       pendingEmail: emailverifications.email,
     })
     .from(users)
@@ -46,6 +59,29 @@ export async function getUserProfile(userId: string) {
         ? u.phoneVerifiedAt.toISOString()
         : String(u.phoneVerifiedAt)
       : null,
+    defaultShippingAddress:
+      u.defaultShippingFullName &&
+      u.defaultShippingPhone &&
+      u.defaultShippingCountry &&
+      u.defaultShippingState &&
+      u.defaultShippingCity &&
+      u.defaultShippingAddressLine1
+        ? {
+            fullName: u.defaultShippingFullName,
+            phone: u.defaultShippingPhone,
+            email: u.defaultShippingEmail ?? null,
+            country: u.defaultShippingCountry,
+            countryId:
+              u.defaultShippingCountryId == null ? null : Number(u.defaultShippingCountryId),
+            state: u.defaultShippingState,
+            stateId: u.defaultShippingStateId == null ? null : Number(u.defaultShippingStateId),
+            city: u.defaultShippingCity,
+            cityId: u.defaultShippingCityId == null ? null : Number(u.defaultShippingCityId),
+            addressLine1: u.defaultShippingAddressLine1,
+            addressLine2: u.defaultShippingAddressLine2 ?? null,
+            postalCode: u.defaultShippingPostalCode ?? null,
+          }
+        : null,
   };
 }
 
@@ -73,6 +109,29 @@ export async function updateUserProfile(
   }
 
   await db.update(users).set(updates).where(eq(users.id, userIdNum));
+
+  return getUserProfile(userId);
+}
+
+export async function updateUserDefaultShippingAddress(userId: string, data: UpdateUserAddressDto) {
+  const userIdNum = toUserId(userId);
+  await db
+    .update(users)
+    .set({
+      defaultShippingFullName: data.fullName,
+      defaultShippingPhone: data.phone,
+      defaultShippingEmail: data.email ?? null,
+      defaultShippingCountry: data.country,
+      defaultShippingCountryId: data.countryId ?? null,
+      defaultShippingState: data.state,
+      defaultShippingStateId: data.stateId ?? null,
+      defaultShippingCity: data.city,
+      defaultShippingCityId: data.cityId ?? null,
+      defaultShippingAddressLine1: data.addressLine1,
+      defaultShippingAddressLine2: data.addressLine2 ?? null,
+      defaultShippingPostalCode: data.postalCode ?? null,
+    })
+    .where(eq(users.id, userIdNum));
 
   return getUserProfile(userId);
 }

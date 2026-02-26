@@ -56,6 +56,7 @@ export async function createProduct(data: CreateProductDto) {
           warrantyId: data.warrantyId ?? null,
           gradeId: data.gradeId ?? null,
           status: data.status ?? 'active',
+          isFeatured: data.isFeatured ?? false,
         })
         .$returningId();
 
@@ -251,6 +252,7 @@ export async function updateProduct(id: number, data: UpdateProductDto) {
       if (data.warrantyId !== undefined) updates.warrantyId = data.warrantyId ?? null;
       if (data.gradeId !== undefined) updates.gradeId = data.gradeId ?? null;
       if (data.status !== undefined) updates.status = data.status;
+      if (data.isFeatured !== undefined) updates.isFeatured = data.isFeatured;
 
       if (Object.keys(updates).length) {
         await tx.update(products).set(updates).where(eq(products.id, id));

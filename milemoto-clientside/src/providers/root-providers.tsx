@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 
 import { CartProvider } from '@/features/cart/cart-context';
+import { WishlistProvider } from '@/features/wishlist/wishlist-context';
 import { AuthProvider } from '@/providers/auth-provider';
 
 export function RootProviders({ children }: PropsWithChildren) {
@@ -50,7 +51,9 @@ export function RootProviders({ children }: PropsWithChildren) {
     >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <CartProvider>{children}</CartProvider>
+          <WishlistProvider>
+            <CartProvider>{children}</CartProvider>
+          </WishlistProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

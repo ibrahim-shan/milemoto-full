@@ -6,6 +6,7 @@ import { useGetCategories } from '@/hooks/useCategoryQueries';
 import { GeneralCombobox } from '@/ui/combobox';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/ui/form';
 import { Input } from '@/ui/input';
+import { Switch } from '@/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
 import { Textarea } from '@/ui/textarea';
 
@@ -170,6 +171,31 @@ export function GeneralTab() {
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={control}
+        name="isFeatured"
+        render={({ field }) => (
+          <FormItem className="col-span-1">
+            <div className="border-border/60 bg-card/40 flex min-h-10 items-center justify-between rounded-lg border px-3 py-2">
+              <div>
+                <FormLabel className="mb-0">Featured Product</FormLabel>
+                <p className="text-muted-foreground text-xs">
+                  Show this product in featured storefront sections.
+                </p>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={Boolean(field.value)}
+                  onCheckedChange={field.onChange}
+                  aria-label="Featured Product"
+                />
+              </FormControl>
+            </div>
             <FormMessage />
           </FormItem>
         )}

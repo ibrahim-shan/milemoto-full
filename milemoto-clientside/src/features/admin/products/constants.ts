@@ -12,6 +12,7 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: 'subCategory', label: 'Sub Category' },
   { id: 'grade', label: 'Grade' },
   { id: 'warranty', label: 'Warranty' },
+  { id: 'featured', label: 'Featured' },
   { id: 'status', label: 'Status' },
   { id: 'actions', label: 'Actions', alwaysVisible: true },
 ];
@@ -26,8 +27,10 @@ export const createDefaultProductFilters = (): ProductFilters => ({
   warrantyId: [],
   specValueId: [],
   status: '',
+  isFeatured: '',
 });
 
 export const DEFAULT_PRODUCT_COLUMN_VISIBILITY: Record<string, boolean> = {
   warranty: false,
+  featured: false,
 };

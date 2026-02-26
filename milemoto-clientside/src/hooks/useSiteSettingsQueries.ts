@@ -3,12 +3,16 @@ import type {
   DocumentSettingsDto,
   FeatureTogglesSettingsDto,
   LocalizationSettingsDto,
+  StockDisplaySettingsDto,
   StoreCurrencySettingsDto,
+  TaxPolicySettingsDto,
   UpdateBrandingSettingsDto,
   UpdateDocumentSettingsDto,
   UpdateFeatureTogglesSettingsDto,
   UpdateLocalizationSettingsDto,
+  UpdateStockDisplaySettingsDto,
   UpdateStoreCurrencySettingsDto,
+  UpdateTaxPolicySettingsDto,
 } from '@milemoto/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -26,6 +30,8 @@ export const siteSettingsKeys = {
   branding: () => [...siteSettingsKeys.all, 'branding'] as const,
   documents: () => [...siteSettingsKeys.all, 'documents'] as const,
   featureToggles: () => [...siteSettingsKeys.all, 'featureToggles'] as const,
+  stockDisplay: () => [...siteSettingsKeys.all, 'stockDisplay'] as const,
+  taxPolicy: () => [...siteSettingsKeys.all, 'taxPolicy'] as const,
 };
 
 type QueryOptions = {
@@ -61,6 +67,17 @@ const getFeatureTogglesSettings = () =>
 
 const updateFeatureTogglesSettings = (data: UpdateFeatureTogglesSettingsDto) =>
   authorizedPut<FeatureTogglesSettingsDto>(`${API_BASE}/feature-toggles`, data);
+
+const getStockDisplaySettings = () =>
+  authorizedGet<StockDisplaySettingsDto>(`${API_BASE}/stock-display`);
+
+const updateStockDisplaySettings = (data: UpdateStockDisplaySettingsDto) =>
+  authorizedPut<StockDisplaySettingsDto>(`${API_BASE}/stock-display`, data);
+
+const getTaxPolicySettings = () => authorizedGet<TaxPolicySettingsDto>(`${API_BASE}/tax-policy`);
+
+const updateTaxPolicySettings = (data: UpdateTaxPolicySettingsDto) =>
+  authorizedPut<TaxPolicySettingsDto>(`${API_BASE}/tax-policy`, data);
 
 // ==== Hooks =====================================================
 
@@ -186,6 +203,56 @@ export const useUpdateFeatureTogglesSettings = () => {
     },
     onSuccess: data => {
       queryClient.setQueryData(siteSettingsKeys.featureToggles(), data);
+    },
+  });
+};
+
+export const useGetStockDisplaySettings = () =>
+  useQuery({
+    queryKey: siteSettingsKeys.stockDisplay(),
+    queryFn: getStockDisplaySettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+export const useUpdateStockDisplaySettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: UpdateStockDisplaySettingsDto) => {
+      const promise = updateStockDisplaySettings(data);
+      toast.promise(promise, {
+        loading: 'Saving stock display settings...',
+        success: 'Stock display settings saved successfully.',
+        error: 'Failed to save stock display settings.',
+      });
+      return await promise;
+    },
+    onSuccess: data => {
+      queryClient.setQueryData(siteSettingsKeys.stockDisplay(), data);
+    },
+  });
+};
+
+export const useGetTaxPolicySettings = () =>
+  useQuery({
+    queryKey: siteSettingsKeys.taxPolicy(),
+    queryFn: getTaxPolicySettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+export const useUpdateTaxPolicySettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: UpdateTaxPolicySettingsDto) => {
+      const promise = updateTaxPolicySettings(data);
+      toast.promise(promise, {
+        loading: 'Saving tax policy settings...',
+        success: 'Tax policy settings saved successfully.',
+        error: 'Failed to save tax policy settings.',
+      });
+      return await promise;
+    },
+    onSuccess: data => {
+      queryClient.setQueryData(siteSettingsKeys.taxPolicy(), data);
     },
   });
 };

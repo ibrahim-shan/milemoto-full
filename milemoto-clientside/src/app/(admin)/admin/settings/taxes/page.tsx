@@ -10,6 +10,7 @@ import { PaginationControls } from '@/features/pagination/pagination-controls';
 // Hooks & Utils
 import { useDebounce } from '@/hooks/useDebounce';
 import { useDefaultCurrency } from '@/hooks/useDefaultCurrency';
+import { useGetTaxPolicySettings } from '@/hooks/useSiteSettingsQueries';
 import { useDeleteTax, useGetTaxes, type Tax } from '@/hooks/useTaxQueries';
 // UI Components
 import {
@@ -52,6 +53,7 @@ export default function TaxesPage() {
 
   // Get default currency with position and decimals
   const { position: currencyPosition, formatCurrency } = useDefaultCurrency();
+  const { data: taxPolicy } = useGetTaxPolicySettings();
 
   // Queries & Mutations
   const { data, isLoading, isError, refetch } = useGetTaxes({
@@ -87,14 +89,85 @@ export default function TaxesPage() {
   const taxes = data?.items ?? [];
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / limit);
+  const formatDateOnly = (value?: string | Date | null) => {
+    if (!value) return null;
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString();
+  };
+  const getEffectiveState = (tax: Tax): 'active_now' | 'scheduled' | 'expired' | 'inactive' => {
+    if (tax.status !== 'active') return 'inactive';
+    // eslint-disable-next-line react-hooks/purity -- current time is required to classify active/scheduled/expired rows at render time
+    const now = Date.now();
+    const from = tax.validFrom ? new Date(tax.validFrom).getTime() : null;
+    const to = tax.validTo ? new Date(tax.validTo).getTime() : null;
+    if (from != null && Number.isFinite(from) && from > now) return 'scheduled';
+    if (to != null && Number.isFinite(to) && to < now) return 'expired';
+    return 'active_now';
+  };
+  const jurisdictionSourceLabel =
+    taxPolicy?.jurisdictionSource === 'billing_country' ? 'Billing country' : 'Shipping country';
+  const taxableBaseLabel =
+    taxPolicy?.taxableBaseMode === 'subtotal' ? 'Subtotal' : 'Subtotal - Discount';
+  const roundingLabel = `${taxPolicy?.roundingPrecision ?? 2} decimals`;
+  const shippingTaxLabel = taxPolicy?.shippingTaxable
+    ? 'Applied (shipping included in taxable base)'
+    : 'Not applied in current checkout';
+  const combinationLabel =
+    taxPolicy?.combinationMode === 'exclusive'
+      ? 'Exclusive (single best match)'
+      : 'Stacking (sum matched rules)';
+  const fallbackLabel =
+    taxPolicy?.fallbackMode === 'block_checkout' ? 'Block checkout' : 'No tax (allow checkout)';
 
   return (
     <>
       <Card>
         <CardHeader>
           <CardTitle>Taxes & Duties</CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Manage tax rules (rates, countries, dates).
+          </p>
         </CardHeader>
         <CardContent>
+          <div className="bg-muted/20 mb-6 rounded-md border p-4">
+            <div className="text-sm font-semibold">
+              Current Tax Policy (How checkout uses these rules)
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+              <div>
+                <span className="text-muted-foreground">Jurisdiction source:</span>{' '}
+                {jurisdictionSourceLabel}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Rule scope:</span> Global + Country
+              </div>
+              <div>
+                <span className="text-muted-foreground">Rule status:</span> Active rules only
+                {', '}within effective date window
+              </div>
+              <div>
+                <span className="text-muted-foreground">Combination:</span> {combinationLabel}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Taxable base:</span> {taxableBaseLabel}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Rounding:</span> {roundingLabel}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Shipping tax:</span> {shippingTaxLabel}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Fallback:</span> {fallbackLabel}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Historical orders:</span> Tax snapshot is
+                stored on order
+              </div>
+            </div>
+          </div>
+
           {/* Toolbar area */}
           <div className="mb-6 flex items-center justify-between gap-4">
             <div className="relative max-w-sm flex-1">
@@ -128,6 +201,7 @@ export default function TaxesPage() {
                 <TableHead>Rate</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Region</TableHead>
+                <TableHead>Effective Dates</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -152,6 +226,9 @@ export default function TaxesPage() {
                       <Skeleton className="h-5 w-16" />
                     </TableCell>
                     <TableCell>
+                      <Skeleton className="h-5 w-24" />
+                    </TableCell>
+                    <TableCell>
                       <Skeleton className="h-8 w-8" />
                     </TableCell>
                   </TableRow>
@@ -159,7 +236,7 @@ export default function TaxesPage() {
               ) : isError ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="h-24 text-center text-red-500"
                   >
                     <TableStateMessage
@@ -172,7 +249,7 @@ export default function TaxesPage() {
               ) : taxes.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="text-muted-foreground h-32 text-center"
                   >
                     <TableStateMessage
@@ -201,9 +278,40 @@ export default function TaxesPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge variant={tax.status === 'active' ? 'success' : 'neutral'}>
-                        {tax.status === 'active' ? 'Active' : 'Inactive'}
-                      </StatusBadge>
+                      {tax.validFrom || tax.validTo ? (
+                        <div className="space-y-0.5 text-xs">
+                          <div>
+                            <span className="text-muted-foreground">From:</span>{' '}
+                            {formatDateOnly(tax.validFrom) || 'Any'}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">To:</span>{' '}
+                            {formatDateOnly(tax.validTo) || 'Open'}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm italic">Always</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge variant={tax.status === 'active' ? 'success' : 'neutral'}>
+                          {tax.status === 'active' ? 'Active' : 'Inactive'}
+                        </StatusBadge>
+                        {(() => {
+                          const effectiveState = getEffectiveState(tax);
+                          if (effectiveState === 'active_now') {
+                            return <StatusBadge variant="info">Active Now</StatusBadge>;
+                          }
+                          if (effectiveState === 'scheduled') {
+                            return <StatusBadge variant="warning">Scheduled</StatusBadge>;
+                          }
+                          if (effectiveState === 'expired') {
+                            return <StatusBadge variant="error">Expired</StatusBadge>;
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>

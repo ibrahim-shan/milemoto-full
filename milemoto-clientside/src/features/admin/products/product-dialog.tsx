@@ -65,11 +65,12 @@ export function ProductDialog({
   // Form Setup
   const methods = useForm<CreateProductDto>({
     resolver: zodResolver(CreateProduct) as unknown as Resolver<CreateProductDto>,
-    defaultValues: {
-      name: '',
-      shortDescription: '',
-      longDescription: '',
-      brandId: 0,
+      defaultValues: {
+        name: '',
+        shortDescription: '',
+        longDescription: '',
+        isFeatured: false,
+        brandId: 0,
       categoryId: 0,
       subCategoryId: 0,
       gradeId: 0,
@@ -101,6 +102,7 @@ export function ProductDialog({
           warrantyId: productData.warrantyId || undefined,
           gradeId: productData.gradeId || 0,
           status: (productData.status || 'active') as 'active' | 'inactive',
+          isFeatured: Boolean(productData.isFeatured),
 
           specifications:
             productData.specifications?.map(spec => ({
@@ -140,6 +142,7 @@ export function ProductDialog({
           subCategoryId: 0,
           gradeId: 0,
           status: 'active',
+          isFeatured: false,
           images: [],
           variants: [],
           specifications: [],

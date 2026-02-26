@@ -14,19 +14,42 @@ type Item = {
   imageSrc: string;
   priceMinor: number;
   qty: number;
+  warning?: string;
+};
+
+type TaxLine = {
+  taxId: number;
+  name: string;
+  type: 'percentage' | 'fixed';
+  rate: number;
+  amountMinor: number;
 };
 
 export default function OrderSummary({
   items,
   subtotalMinor,
+  discountMinor = 0,
   shippingMinor,
+  taxMinor = 0,
+  taxLines = [],
   totalMinor,
+  warnings = [],
+  errors = [],
+  canPlaceOrder = true,
+  submitting = false,
   onPay,
 }: {
   items: Item[];
   subtotalMinor: number;
+  discountMinor?: number;
   shippingMinor: number;
+  taxMinor?: number;
+  taxLines?: TaxLine[];
   totalMinor: number;
+  warnings?: string[];
+  errors?: string[];
+  canPlaceOrder?: boolean;
+  submitting?: boolean;
   onPay: () => void;
 }) {
   const [code, setCode] = React.useState('');
@@ -53,6 +76,7 @@ export default function OrderSummary({
               <div className="text-sm">
                 <div className="font-medium">{it.title}</div>
                 <div className="text-muted-foreground">x{it.qty}</div>
+                {it.warning ? <div className="text-xs text-amber-600">{it.warning}</div> : null}
               </div>
             </div>
             <div className="text-sm font-medium tabular-nums">{formatPrice(it.priceMinor)}</div>
@@ -87,15 +111,50 @@ export default function OrderSummary({
         </div>
       </div>
 
+      {warnings.length > 0 ? (
+        <div className="mb-4 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          {warnings.map((w, idx) => (
+            <div key={`${w}-${idx}`}>{w}</div>
+          ))}
+        </div>
+      ) : null}
+
+      {errors.length > 0 ? (
+        <div className="mb-4 space-y-1 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+          {errors.map((e, idx) => (
+            <div key={`${e}-${idx}`}>{e}</div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="mt-4 space-y-2 text-sm">
         <Row
           label="Subtotal"
           value={formatPrice(subtotalMinor)}
         />
         <Row
+          label="Discount"
+          value={formatPrice(discountMinor)}
+        />
+        <Row
           label="Shipping"
           value={formatPrice(shippingMinor)}
         />
+        <Row
+          label="Tax"
+          value={formatPrice(taxMinor)}
+        />
+        {taxLines.length > 0 ? (
+          <div className="border-border/50 ml-2 space-y-1 border-l pl-3">
+            {taxLines.map(line => (
+              <Row
+                key={`${line.taxId}-${line.name}`}
+                label={`${line.name} (${line.type === 'percentage' ? `${line.rate}%` : 'fixed'})`}
+                value={formatPrice(line.amountMinor)}
+              />
+            ))}
+          </div>
+        ) : null}
         <div className="text-primary mt-2 flex items-center justify-between border-t pt-3 text-base font-semibold">
           <span>Total</span>
           <span className="tabular-nums">{formatPrice(totalMinor)}</span>
@@ -110,8 +169,9 @@ export default function OrderSummary({
         fullWidth
         className="mt-6"
         onClick={onPay}
+        disabled={submitting || !canPlaceOrder || items.length === 0}
       >
-        Pay Now
+        {submitting ? 'Placing Order...' : 'Place Order'}
       </Button>
     </div>
   );

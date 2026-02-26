@@ -19,7 +19,9 @@ export function AccountTabs() {
   const pathname = usePathname();
 
   // Find the active tab index
-  let activeIndex = tabs.findIndex(tab => pathname === tab.href);
+  let activeIndex = tabs.findIndex(tab =>
+    tab.href === '/account/orders' ? pathname.startsWith('/account/orders') : pathname === tab.href,
+  );
   // Default to first tab (Orders) if on base /account page
   if (activeIndex === -1 && pathname === '/account') {
     activeIndex = 0;

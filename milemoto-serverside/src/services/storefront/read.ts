@@ -17,6 +17,7 @@ import {
   warranties,
 } from '@milemoto/types';
 import { db } from '../../db/drizzle.js';
+import { getStockDisplaySettings } from '../siteSettings/read.js';
 import { buildPaginatedResponse } from '../../utils/response.js';
 import type {
   StorefrontListQueryDto,
@@ -32,12 +33,29 @@ import type {
 // ── List products (public, active only) ─────────────────────────────────────
 export async function listStorefrontProducts(query: StorefrontListQueryDto) {
   const offset = (query.page - 1) * query.limit;
+  const stockAvailableAgg = db
+    .select({
+      productVariantId: stocklevels.productVariantId,
+      available: sql<number>`SUM(COALESCE(${stocklevels.onHand}, 0) - COALESCE(${stocklevels.allocated}, 0))`.as(
+        'available',
+      ),
+    })
+    .from(stocklevels)
+    .groupBy(stocklevels.productVariantId)
+    .as('stock_available_agg');
+
   const activeVariantPriceAgg = db
     .select({
       productId: productvariants.productId,
       minPrice: sql<number>`MIN(${productvariants.price})`.as('min_price'),
+      variantCount: sql<number>`COUNT(*)`.as('variant_count'),
+      singleVariantId: sql<number>`MIN(${productvariants.id})`.as('single_variant_id'),
+      totalAvailable: sql<number>`SUM(COALESCE(${stockAvailableAgg.available}, 0))`.as(
+        'total_available',
+      ),
     })
     .from(productvariants)
+    .leftJoin(stockAvailableAgg, eq(stockAvailableAgg.productVariantId, productvariants.id))
     .where(eq(productvariants.status, 'active'))
     .groupBy(productvariants.productId)
     .as('active_variant_price_agg');
@@ -55,6 +73,7 @@ export async function listStorefrontProducts(query: StorefrontListQueryDto) {
     const filters = [
       // Only active products
       eq(products.status, 'active'),
+      query.isFeatured !== undefined ? eq(products.isFeatured, query.isFeatured) : undefined,
       categoryIds.length > 0 ? inArray(products.categoryId, categoryIds) : undefined,
       subCategoryIds.length > 0 ? inArray(products.subCategoryId, subCategoryIds) : undefined,
       brandIds.length > 0 ? inArray(products.brandId, brandIds) : undefined,
@@ -109,8 +128,11 @@ export async function listStorefrontProducts(query: StorefrontListQueryDto) {
           categoryName: categories.name,
           imageSrc: sql<
             string | null
-          >`(SELECT pi.imagePath FROM productimages pi WHERE pi.productId = ${products.id} ORDER BY pi.isPrimary DESC, pi.id ASC LIMIT 1)`,
+          >`(SELECT pi.imagePath FROM productimages pi WHERE pi.productId = ${products.id} AND pi.productVariantId IS NULL ORDER BY pi.isPrimary DESC, pi.id ASC LIMIT 1)`,
           startingPrice: activeVariantPriceAgg.minPrice,
+          variantCount: activeVariantPriceAgg.variantCount,
+          singleVariantId: sql<number | null>`CASE WHEN ${activeVariantPriceAgg.variantCount} = 1 THEN ${activeVariantPriceAgg.singleVariantId} ELSE NULL END`,
+          singleVariantAvailable: sql<number | null>`CASE WHEN ${activeVariantPriceAgg.variantCount} = 1 THEN GREATEST(0, ${activeVariantPriceAgg.totalAvailable}) ELSE NULL END`,
         })
         .from(products)
         .innerJoin(activeVariantPriceAgg, eq(activeVariantPriceAgg.productId, products.id))
@@ -159,6 +181,7 @@ export async function listStorefrontProducts(query: StorefrontListQueryDto) {
 export async function getStorefrontProductBySlug(
   slug: string
 ): Promise<StorefrontProductDetail | null> {
+  const stockDisplaySettings = await getStockDisplaySettings();
   // 1. Get the product
   const rows = await db
     .select({
@@ -329,6 +352,8 @@ export async function getStorefrontProductBySlug(
     subCategoryName: product.subCategoryName,
     gradeName: product.gradeName,
     warrantyName: product.warrantyName,
+    stockDisplayMode: stockDisplaySettings.productStockDisplayMode,
+    lowStockThreshold: stockDisplaySettings.lowStockThreshold,
     variants,
     specifications,
   };
@@ -344,11 +369,12 @@ export async function getStorefrontFilters(): Promise<StorefrontFiltersResponse>
     .select({
       id: categories.id,
       name: categories.name,
+      imageUrl: categories.imageUrl,
       count: sql<number>`count(${products.id})`,
     })
     .from(categories)
     .innerJoin(products, and(eq(products.categoryId, categories.id), activeFilter))
-    .groupBy(categories.id, categories.name)
+    .groupBy(categories.id, categories.name, categories.imageUrl)
     .orderBy(asc(categories.name));
 
   // Sub-categories used by active products
@@ -379,6 +405,7 @@ export async function getStorefrontFilters(): Promise<StorefrontFiltersResponse>
     id: c.id,
     name: c.name,
     count: Number(c.count),
+    imageUrl: c.imageUrl ?? null,
     subCategories: subsByParent.get(c.id) ?? [],
   }));
 

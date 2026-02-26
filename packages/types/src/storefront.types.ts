@@ -5,6 +5,13 @@ import { PaginationSchema, type PaginatedResponse } from "./common.types.js";
 export const StorefrontListQuery = PaginationSchema.extend({
   search: z.string().optional(),
   sort: z.enum(["newest", "price-asc", "price-desc", "name-asc"]).optional(),
+  isFeatured: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z
+      .union([z.boolean(), z.enum(["true", "false"])])
+      .transform((val) => (typeof val === "boolean" ? val : val === "true"))
+      .optional(),
+  ),
   categoryId: z
     .union([
       z.coerce.number().int().positive(),
@@ -42,6 +49,9 @@ export interface StorefrontProductListItem {
   shortDescription: string | null;
   imageSrc: string | null;
   startingPrice: number | null;
+  variantCount: number;
+  singleVariantId: number | null;
+  singleVariantAvailable: number | null;
   brandName: string | null;
   categoryName: string | null;
 }
@@ -85,6 +95,8 @@ export interface StorefrontProductDetail {
   subCategoryName: string | null;
   gradeName: string | null;
   warrantyName: string | null;
+  stockDisplayMode?: 'exact' | 'low_stock_only' | 'binary' | 'hide';
+  lowStockThreshold?: number;
   variants: StorefrontVariant[];
   specifications: StorefrontSpec[];
 }
@@ -100,6 +112,7 @@ export interface StorefrontCategoryFilter {
   id: number;
   name: string;
   count: number;
+  imageUrl?: string | null;
   subCategories: StorefrontFilterItem[];
 }
 

@@ -7,6 +7,8 @@ import {
   UpdateBrandingSettings,
   UpdateDocumentSettings,
   UpdateFeatureTogglesSettings,
+  UpdateStockDisplaySettings,
+  UpdateTaxPolicySettings,
 } from './helpers/siteSettings.helpers.js';
 import * as siteSettingsService from '../../services/siteSettings.service.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -146,6 +148,60 @@ router.put(
   asyncHandler(async (req, res) => {
     const body = UpdateFeatureTogglesSettings.parse(req.body);
     const updated = await siteSettingsService.updateFeatureTogglesSettings(body);
+    res.json(updated);
+  })
+);
+
+/**
+ * GET /api/v1/admin/site-settings/stock-display
+ * Get storefront stock display settings
+ */
+router.get(
+  '/stock-display',
+  requirePermission('settings.read'),
+  asyncHandler(async (_req, res) => {
+    const settings = await siteSettingsService.getStockDisplaySettings();
+    res.json(settings);
+  })
+);
+
+/**
+ * PUT /api/v1/admin/site-settings/stock-display
+ * Update storefront stock display settings
+ */
+router.put(
+  '/stock-display',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
+    const body = UpdateStockDisplaySettings.parse(req.body);
+    const updated = await siteSettingsService.updateStockDisplaySettings(body);
+    res.json(updated);
+  })
+);
+
+/**
+ * GET /api/v1/admin/site-settings/tax-policy
+ * Get tax policy settings
+ */
+router.get(
+  '/tax-policy',
+  requirePermission('settings.read'),
+  asyncHandler(async (_req, res) => {
+    const settings = await siteSettingsService.getTaxPolicySettings();
+    res.json(settings);
+  })
+);
+
+/**
+ * PUT /api/v1/admin/site-settings/tax-policy
+ * Update tax policy settings
+ */
+router.put(
+  '/tax-policy',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
+    const body = UpdateTaxPolicySettings.parse(req.body);
+    const updated = await siteSettingsService.updateTaxPolicySettings(body);
     res.json(updated);
   })
 );

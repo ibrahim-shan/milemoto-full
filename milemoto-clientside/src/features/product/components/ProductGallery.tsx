@@ -2,9 +2,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 
+import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import { cn } from '@/lib/utils';
+import { FallbackImage } from '@/ui/fallback-image';
 
 type Props = {
   images: { src: string; alt: string }[];
@@ -66,9 +67,10 @@ export function ProductGallery({ images, activeIndex, onActiveIndexChange }: Pro
       className="space-y-4"
     >
       <div className="border-border/60 bg-card aspect-4/3 relative w-full overflow-hidden rounded-xl border">
-        <Image
+        <FallbackImage
           key={current.src}
           src={current.src}
+          fallbackSrc={IMAGE_PLACEHOLDERS.product4x3}
           alt={current.alt}
           fill
           priority
@@ -97,8 +99,9 @@ export function ProductGallery({ images, activeIndex, onActiveIndexChange }: Pro
                 active ? 'border-primary ring-ring ring-0' : 'border-border/60 hover:border-border',
               )}
             >
-              <Image
+              <FallbackImage
                 src={img.src}
+                fallbackSrc={IMAGE_PLACEHOLDERS.product4x3}
                 alt={img.alt}
                 fill
                 loading="lazy"

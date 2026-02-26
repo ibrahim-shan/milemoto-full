@@ -89,6 +89,7 @@ export function PriceFilter({
     const nextMin = Math.max(ABSOLUTE_MIN, Math.min(nextMinRaw, max));
     const nextMax = Math.max(nextMin, Math.min(nextMaxRaw, max));
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local slider state from controlled prop values
     setRange(prev => (prev[0] === nextMin && prev[1] === nextMax ? prev : [nextMin, nextMax]));
   }, [valueMinPrice, valueMaxPrice, max]);
 

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import type { CreateProductDto } from '@milemoto/types';
-import { Edit, Eye, Layers, Package, Trash } from 'lucide-react';
+import { Edit, Eye, Layers, Package, Star, Trash } from 'lucide-react';
 
 import { useGetBrands } from '@/hooks/useBrandQueries';
 import { useGetAllCategories } from '@/hooks/useCategoryQueries';
@@ -110,6 +110,15 @@ export function useProductsPage() {
         ],
       },
       {
+        key: 'isFeatured',
+        label: 'Featured',
+        type: 'select',
+        options: [
+          { label: 'Featured', value: 'true' },
+          { label: 'Not Featured', value: 'false' },
+        ],
+      },
+      {
         key: 'gradeId',
         label: 'Grade',
         type: 'multiselect',
@@ -136,6 +145,9 @@ export function useProductsPage() {
     limit: pageSize,
     search,
     ...filters,
+    ...(filters.isFeatured === ''
+      ? { isFeatured: undefined }
+      : { isFeatured: filters.isFeatured === 'true' }),
   });
 
   const createMutation = useCreateProduct();
@@ -224,6 +236,16 @@ export function useProductsPage() {
       label: 'Edit',
       icon: <Edit className="mr-2 h-4 w-4" />,
       onClick: () => handleOpenEdit(product),
+    },
+    {
+      label: product.isFeatured ? 'Remove Featured' : 'Mark as Featured',
+      icon: <Star className="mr-2 h-4 w-4" />,
+      onClick: async () => {
+        await updateMutation.mutateAsync({
+          id: product.id,
+          data: { isFeatured: !product.isFeatured },
+        });
+      },
     },
     {
       label: 'Delete',

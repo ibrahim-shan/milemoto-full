@@ -11,7 +11,7 @@ import { logger } from '../../utils/logger.js';
 import type { RegisterResponseDto } from '@milemoto/types';
 
 export async function register(data: z.infer<typeof Register>) {
-  const { fullName, email, phone, password } = data;
+  const { fullName, email, phone, password, next } = data;
   const hash = await argon2.hash(password, { type: argon2.argon2id });
 
   try {
@@ -41,7 +41,7 @@ export async function register(data: z.infer<typeof Register>) {
     }
 
     try {
-      await sendNewVerificationEmail(String(userId), email);
+      await sendNewVerificationEmail(String(userId), email, next);
     } catch (emailError: unknown) {
       logger.error(
         { err: emailError, emailHash: sha256(email.toLowerCase()) },

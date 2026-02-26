@@ -18,6 +18,11 @@ export const Register = z.object({
   phone: PhoneSchema.optional(),
   password: PasswordSchema,
   remember: z.coerce.boolean().optional().default(false),
+  next: z
+    .string()
+    .trim()
+    .refine((v) => v.startsWith('/') && !v.startsWith('//'), 'Invalid next path')
+    .optional(),
 });
 
 export const ChangePassword = z.object({
@@ -28,6 +33,21 @@ export const ChangePassword = z.object({
 export const UpdateProfile = z.object({
   fullName: FullNameSchema,
   phone: z.union([PhoneSchema, z.null()]).optional(),
+});
+
+export const UpdateUserAddress = z.object({
+  fullName: z.string().trim().min(1).max(255),
+  phone: z.string().trim().min(3).max(50),
+  email: z.string().trim().email().max(255).nullable().optional(),
+  country: z.string().trim().min(2).max(100),
+  countryId: z.coerce.number().int().positive().nullable().optional(),
+  state: z.string().trim().min(1).max(100),
+  stateId: z.coerce.number().int().positive().nullable().optional(),
+  city: z.string().trim().min(1).max(100),
+  cityId: z.coerce.number().int().positive().nullable().optional(),
+  addressLine1: z.string().trim().min(1).max(255),
+  addressLine2: z.string().trim().max(255).nullable().optional(),
+  postalCode: z.string().trim().max(50).nullable().optional(),
 });
 
 export const DisableMfa = z.object({

@@ -1,7 +1,12 @@
 // src/lib/cart.ts
-import { authorizedGet, authorizedPost } from './api';
+import { authorizedDel, authorizedGet, authorizedPatch, authorizedPost } from './api';
 
 export type GuestCartItem = {
+  productVariantId: number;
+  quantity: number;
+};
+
+export type AddServerCartItemInput = {
   productVariantId: number;
   quantity: number;
 };
@@ -55,5 +60,50 @@ export async function fetchServerCart(): Promise<ServerCartResponse | null> {
   } catch (err) {
     console.warn('[cart] fetchServerCart failed silently:', err);
     return null;
+  }
+}
+
+/**
+ * Add/update an item in the authenticated user's server cart.
+ * Returns the updated server cart on success, null on failure.
+ */
+export async function addServerCartItem(
+  input: AddServerCartItemInput,
+): Promise<ServerCartResponse | null> {
+  try {
+    return await authorizedPost<ServerCartResponse>('/cart/items', input);
+  } catch (err) {
+    console.warn('[cart] addServerCartItem failed:', err);
+    throw err;
+  }
+}
+
+export async function setServerCartItemQty(
+  itemId: number,
+  quantity: number,
+): Promise<ServerCartResponse | null> {
+  try {
+    return await authorizedPatch<ServerCartResponse>(`/cart/items/${itemId}`, { quantity });
+  } catch (err) {
+    console.warn('[cart] setServerCartItemQty failed:', err);
+    throw err;
+  }
+}
+
+export async function removeServerCartItem(itemId: number): Promise<ServerCartResponse | null> {
+  try {
+    return await authorizedDel<ServerCartResponse>(`/cart/items/${itemId}`);
+  } catch (err) {
+    console.warn('[cart] removeServerCartItem failed:', err);
+    throw err;
+  }
+}
+
+export async function clearServerCart(): Promise<ServerCartResponse | null> {
+  try {
+    return await authorizedDel<ServerCartResponse>('/cart');
+  } catch (err) {
+    console.warn('[cart] clearServerCart failed:', err);
+    throw err;
   }
 }

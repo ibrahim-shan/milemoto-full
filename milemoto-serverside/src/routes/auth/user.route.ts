@@ -1,8 +1,9 @@
 // src/routes/auth/user.route.ts
 import { Router } from 'express';
+import type { UpdateUserAddressDto } from '@milemoto/types';
 import { requireAuth } from '../../middleware/authz.js';
 import { phoneVerifyConfirmLimiter, phoneVerifyStartLimiter } from '../../middleware/rateLimit.js';
-import { UpdateProfile, VerifyPhoneCode } from '../helpers/auth.helpers.js';
+import { UpdateProfile, UpdateUserAddress, VerifyPhoneCode } from '../helpers/auth.helpers.js';
 import { EmailSchema } from '../helpers/validation.js';
 import { getUserOrThrow, requireUser } from './auth.middleware.js';
 import { handleAuthRouteError } from './errors.js';
@@ -10,6 +11,7 @@ import {
   getUserProfile,
   startEmailChange,
   startPhoneVerification,
+  updateUserDefaultShippingAddress,
   updateUserProfile,
   verifyPhoneCode,
 } from '../../services/auth.service.js';
@@ -24,6 +26,32 @@ userAuth.get('/me', requireAuth, requireUser, async (req, res, next) => {
     res.json(user);
   } catch (e) {
     handleAuthRouteError(e, req, res, next);
+  }
+});
+
+/** POST /api/v1/auth/me/address - update default shipping address */
+userAuth.post('/me/address', requireAuth, requireUser, async (req, res, next) => {
+  try {
+    const userId = String(getUserOrThrow(req).id);
+    const body = UpdateUserAddress.parse(req.body);
+    const address: UpdateUserAddressDto = {
+      fullName: body.fullName,
+      phone: body.phone,
+      country: body.country,
+      state: body.state,
+      city: body.city,
+      addressLine1: body.addressLine1,
+      ...(body.email !== undefined ? { email: body.email } : {}),
+      ...(body.countryId !== undefined ? { countryId: body.countryId } : {}),
+      ...(body.stateId !== undefined ? { stateId: body.stateId } : {}),
+      ...(body.cityId !== undefined ? { cityId: body.cityId } : {}),
+      ...(body.addressLine2 !== undefined ? { addressLine2: body.addressLine2 } : {}),
+      ...(body.postalCode !== undefined ? { postalCode: body.postalCode } : {}),
+    };
+    const user = await updateUserDefaultShippingAddress(userId, address);
+    res.json(user);
+  } catch (e) {
+    return handleAuthRouteError(e, req, res, next);
   }
 });
 

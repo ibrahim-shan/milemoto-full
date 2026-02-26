@@ -558,7 +558,7 @@ export function ShopFiltersClient() {
               type="search"
               value={q}
               onChange={e => setQ(e.target.value)}
-              placeholder="Search by name, model, etc"
+              placeholder="Search products by name"
               className="border-border bg-background text-foreground focus:border-primary w-full rounded-md border py-2 pl-9 pr-3 text-sm focus:outline-none"
             />
           </div>
@@ -609,7 +609,12 @@ export function ShopFiltersClient() {
                 title={`Remove ${chip.label}`}
               >
                 <span className="truncate">{chip.label}</span>
-                <span aria-hidden className="ml-1">×</span>
+                <span
+                  aria-hidden
+                  className="ml-1"
+                >
+                  ×
+                </span>
               </Button>
             ))}
           </div>

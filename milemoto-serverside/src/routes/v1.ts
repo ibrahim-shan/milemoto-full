@@ -5,6 +5,10 @@ import { setup } from './setup.route.js';
 import { webhooks } from './webhooks/index.js';
 import { cart } from './cart.route.js';
 import { storefront } from './storefront.route.js';
+import { locations } from './locations.route.js';
+import { checkout } from './checkout.route.js';
+import { orders } from './orders.route.js';
+import { wishlist } from './wishlist.route.js';
 
 import { admin } from './admin.route.js';
 import { ensureInstalled } from '../middleware/ensureInstalled.js';
@@ -19,5 +23,9 @@ apiV1.use('/setup', setup);
 apiV1.use('/webhooks', webhooks);
 apiV1.use('/cart', cart);
 apiV1.use('/storefront', storefront);
+apiV1.use('/locations', locations);
+apiV1.use('/checkout', checkout);
+apiV1.use('/orders', orders);
+apiV1.use('/wishlist', wishlist);
 
 apiV1.use('/admin', ensureInstalled, adminLimiter, admin);

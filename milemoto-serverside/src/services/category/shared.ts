@@ -9,6 +9,7 @@ export function toCategoryResponse(row: Category): CategoryResponse {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    imageUrl: row.imageUrl ?? null,
     parentId: row.parentId,
     status: row.status,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),

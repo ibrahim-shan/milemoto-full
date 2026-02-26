@@ -40,7 +40,8 @@ export default async function ProductPage({ params }: Props) {
 
   let product;
   try {
-    product = await serverFetchProductBySlug(slug);
+    // Product detail includes live variant availability, so avoid ISR cache here.
+    product = await serverFetchProductBySlug(slug, 0);
   } catch {
     notFound();
   }

@@ -1,12 +1,12 @@
 // src/components/cards/CategoryCard.tsx
 'use client';
 
-import Image from 'next/image';
-
 import { motion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
 
+import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import { Button } from '@/ui/button';
+import { FallbackImage } from '@/ui/fallback-image';
 
 export type CategoryCardProps = {
   title: string;
@@ -27,8 +27,9 @@ export function CategoryCard({ title, href, imageSrc, imageAlt }: CategoryCardPr
       className="border-border/60 bg-card hover:border-border group relative rounded-xl border p-4 transition-colors"
     >
       <div className="aspect-4/3 relative mx-auto w-full overflow-hidden rounded-lg">
-        <Image
+        <FallbackImage
           src={imageSrc}
+          fallbackSrc={IMAGE_PLACEHOLDERS.category4x3}
           alt={imageAlt}
           fill
           sizes="(min-width:1280px) 240px, (min-width:768px) 25vw, 50vw"

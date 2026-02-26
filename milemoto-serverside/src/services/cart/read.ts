@@ -58,15 +58,32 @@ export async function getCart(userId: number): Promise<CartResponse> {
   const imageRows = await db
     .select({
       productId: productimages.productId,
+      productVariantId: productimages.productVariantId,
       imagePath: productimages.imagePath,
+      isPrimary: productimages.isPrimary,
     })
     .from(productimages)
-    .where(and(inArray(productimages.productId, productIds), eq(productimages.isPrimary, true)));
+    .where(and(inArray(productimages.productId, productIds)));
 
-  const imageMap = new Map<number, string>();
+  const productImageMap = new Map<number, string>();
+  const variantImageMap = new Map<number, string>();
   for (const img of imageRows) {
-    if (!imageMap.has(img.productId)) {
-      imageMap.set(img.productId, img.imagePath);
+    const variantId =
+      img.productVariantId !== null && img.productVariantId !== undefined
+        ? Number(img.productVariantId)
+        : null;
+    if (variantId !== null && !variantImageMap.has(variantId)) {
+      variantImageMap.set(variantId, img.imagePath);
+      continue;
+    }
+
+    if (img.isPrimary && !productImageMap.has(img.productId)) {
+      productImageMap.set(img.productId, img.imagePath);
+      continue;
+    }
+
+    if (!productImageMap.has(img.productId)) {
+      productImageMap.set(img.productId, img.imagePath);
     }
   }
 
@@ -117,7 +134,8 @@ export async function getCart(userId: number): Promise<CartResponse> {
       productId: row.productId,
       productName: row.productName,
       productSlug: row.productSlug,
-      imageSrc: imageMap.get(row.productId) ?? null,
+      imageSrc:
+        variantImageMap.get(row.productVariantId) ?? productImageMap.get(row.productId) ?? null,
       available,
       ...(warning ? { warning } : {}),
     });

@@ -4,7 +4,11 @@ import { app } from '../../src/app.js';
 import { createCatalogAdmin, cleanupCatalogAuth } from './helpers.js';
 
 let accessToken = '';
-const authCleanup = { userIds: [] as number[], roleIds: [] as number[], permissionIds: [] as number[] };
+const authCleanup = {
+  userIds: [] as number[],
+  roleIds: [] as number[],
+  permissionIds: [] as number[],
+};
 
 let rootId: number | null = null;
 let childId: number | null = null;
@@ -75,6 +79,38 @@ describe('catalog categories', () => {
     expect(res.status).toBe(200);
     const hasRoot = (res.body ?? []).some((node: { id: number }) => node.id === rootId);
     expect(hasRoot).toBe(true);
+  });
+
+  it('lists all categories (flat, no pagination)', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/categories/all')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('items');
+    const ids = (res.body.items ?? []).map((c: { id: number }) => c.id);
+    expect(ids).toContain(rootId);
+  });
+
+  it('gets a category by id', async () => {
+    if (!rootId) throw new Error('Missing root category id');
+    const res = await request(app)
+      .get(`/api/v1/admin/categories/${rootId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body?.id).toBe(rootId);
+  });
+
+  it('updates a category', async () => {
+    if (!rootId) throw new Error('Missing root category id');
+    const res = await request(app)
+      .put(`/api/v1/admin/categories/${rootId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ description: 'Updated description' });
+
+    expect(res.status).toBe(200);
+    expect(res.body?.description).toBe('Updated description');
   });
 
   it('deletes child then root', async () => {

@@ -59,4 +59,36 @@ describe('auth change password', () => {
     expect(loginRes2.status).toBe(200);
     expect(loginRes2.body).toHaveProperty('accessToken');
   });
+
+  it('rejects change-password with wrong old password', async () => {
+    const user = testUsers[0];
+    if (!user) throw new Error('Missing test user');
+
+    const loginRes = await request(app).post('/api/v1/auth/login').send({
+      identifier: user.email,
+      password: 'Password456!', // password after the previous test changed it
+      remember: false,
+    });
+
+    const accessToken = loginRes.body?.accessToken as string | undefined;
+    if (!accessToken) throw new Error('Missing access token');
+
+    const res = await request(app)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        oldPassword: 'WrongPassword999!',
+        newPassword: 'NewPassword123!',
+      });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects change-password without authentication', async () => {
+    const res = await request(app).post('/api/v1/auth/change-password').send({
+      oldPassword: 'Password123!',
+      newPassword: 'Password456!',
+    });
+    expect(res.status).toBe(401);
+  });
 });

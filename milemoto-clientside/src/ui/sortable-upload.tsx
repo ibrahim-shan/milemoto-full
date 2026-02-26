@@ -37,6 +37,7 @@ interface ImageUploadProps {
   className?: string;
   value?: string[];
   onChange?: (urls: string[]) => void;
+  showInstructions?: boolean;
 }
 
 export default function SortableImageUpload({
@@ -46,6 +47,7 @@ export default function SortableImageUpload({
   className,
   value = [],
   onChange,
+  showInstructions = true,
 }: ImageUploadProps) {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -293,14 +295,16 @@ export default function SortableImageUpload({
   return (
     <div className={cn('w-full', className)}>
       {/* Instructions */}
-      <div className="mb-4 text-center">
-        <p className="text-muted-foreground text-sm">
-          Upload up to {maxFiles} images (JPG, PNG, GIF, WebP, max {formatBytes(maxSize)} each).{' '}
-          <br />
-          Drag and drop images to reorder.
-          {allImages.length > 0 && ` ${allImages.length}/${maxFiles} uploaded.`}
-        </p>
-      </div>
+      {showInstructions ? (
+        <div className="mb-4 text-center">
+          <p className="text-muted-foreground text-sm">
+            Upload up to {maxFiles} images (JPG, PNG, GIF, WebP, max {formatBytes(maxSize)} each).{' '}
+            <br />
+            Drag and drop images to reorder.
+            {allImages.length > 0 && ` ${allImages.length}/${maxFiles} uploaded.`}
+          </p>
+        </div>
+      ) : null}
 
       {/* Image Grid with Sortable */}
       <div className="mb-6">
@@ -316,7 +320,10 @@ export default function SortableImageUpload({
           }}
           getItemValue={item => item}
           strategy="grid"
-          className="grid auto-rows-fr grid-cols-5 gap-2.5"
+          className={cn(
+            'grid auto-rows-fr gap-2.5',
+            maxFiles === 1 ? 'grid-cols-1' : 'grid-cols-5',
+          )}
           onDragStart={event => setActiveId(event.active.id as string)}
           onDragEnd={() => setActiveId(null)}
         >

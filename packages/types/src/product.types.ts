@@ -57,6 +57,7 @@ export const CreateProduct = z.object({
   shortDescription: TrimmedStringSchema.min(1, "Short description is required").max(255),
   longDescription: TrimmedStringSchema.min(1, "Long description is required"),
   status: z.enum(["active", "inactive"]).default("active"),
+  isFeatured: z.boolean().default(false),
   brandId: z.number().int().positive("Brand is required"),
   categoryId: z.number().int().positive("Category is required"),
   subCategoryId: z.number().int().positive("Sub-category is required"),
@@ -94,7 +95,10 @@ export const CreateProduct = z.object({
   images: z.array(z.string()).min(1, "At least one image is required"),
 });
 
-export const UpdateProduct = CreateProduct.partial();
+export const UpdateProduct = CreateProduct.partial().extend({
+  status: z.enum(["active", "inactive"]).optional(),
+  isFeatured: z.boolean().optional(),
+});
 
 export type CreateProductDto = z.infer<typeof CreateProduct>;
 export type UpdateProductDto = z.infer<typeof UpdateProduct>;
@@ -104,6 +108,13 @@ export const ProductListQuery = PaginationSchema.extend({
   status: z.preprocess(
     (val) => (val === "" ? undefined : val),
     z.enum(["active", "inactive"]).optional(),
+  ),
+  isFeatured: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z
+      .union([z.boolean(), z.enum(["true", "false"])])
+      .transform((val) => (typeof val === "boolean" ? val : val === "true"))
+      .optional(),
   ),
   categoryId: z
     .union([z.coerce.number().int().positive(), z.array(z.coerce.number().int().positive())])

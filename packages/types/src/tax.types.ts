@@ -7,6 +7,10 @@ import { TrimmedStringSchema } from "./zod.helpers.js";
 
 const StatusEnum = z.enum(["active", "inactive"]);
 const TaxTypeEnum = z.enum(["percentage", "fixed"]);
+const OptionalDateInput = z.preprocess(
+  (value) => (value === "" || value == null ? null : value),
+  z.coerce.date().nullable().optional()
+);
 
 export const CreateTax = z.object({
   name: TrimmedStringSchema.min(1, "Name is required"),
@@ -14,7 +18,15 @@ export const CreateTax = z.object({
   type: TaxTypeEnum.default("percentage"),
   status: StatusEnum.default("active"),
   countryId: z.number().int().positive().optional().nullable(),
-});
+  validFrom: OptionalDateInput,
+  validTo: OptionalDateInput,
+}).refine(
+  (data) => !data.validFrom || !data.validTo || data.validFrom <= data.validTo,
+  {
+    message: "Valid To must be after or equal to Valid From",
+    path: ["validTo"],
+  }
+);
 
 export type CreateTaxDto = z.infer<typeof CreateTax>;
 export type CreateTaxOutputDto = z.output<typeof CreateTax>;
@@ -26,8 +38,10 @@ export type UpdateTaxOutputDto = z.output<typeof UpdateTax>;
 
 // ==== API Response Types ====
 
-export interface TaxResponse extends ApiModel<Tax> {
+export interface TaxResponse extends Omit<ApiModel<Tax>, "validFrom" | "validTo"> {
   countryName?: string | null;
+  validFrom: string | null;
+  validTo: string | null;
 }
 
 // For paginated responses

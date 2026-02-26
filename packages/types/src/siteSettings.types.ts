@@ -89,3 +89,37 @@ export type UpdateFeatureTogglesSettingsDto = z.infer<
 >;
 
 export type FeatureTogglesSettingsResponse = FeatureTogglesSettingsDto;
+
+// ==== Stock Display Settings Types ====
+
+export const StockDisplaySettings = z.object({
+  productStockDisplayMode: z.enum(['exact', 'low_stock_only', 'binary', 'hide']),
+  lowStockThreshold: z.number().int().min(1).max(100),
+});
+
+export type StockDisplaySettingsDto = z.infer<typeof StockDisplaySettings>;
+
+export const UpdateStockDisplaySettings = StockDisplaySettings.partial();
+
+export type UpdateStockDisplaySettingsDto = z.infer<typeof UpdateStockDisplaySettings>;
+
+export type StockDisplaySettingsResponse = StockDisplaySettingsDto;
+
+// ==== Tax Policy Settings Types ====
+
+export const TaxPolicySettings = z.object({
+  jurisdictionSource: z.enum(['shipping_country', 'billing_country']),
+  taxableBaseMode: z.enum(['subtotal', 'subtotal_minus_discount']),
+  shippingTaxable: z.boolean(),
+  roundingPrecision: z.number().int().min(0).max(4),
+  combinationMode: z.enum(['stack', 'exclusive']),
+  fallbackMode: z.enum(['no_tax', 'block_checkout']),
+});
+
+export type TaxPolicySettingsDto = z.infer<typeof TaxPolicySettings>;
+
+export const UpdateTaxPolicySettings = TaxPolicySettings.partial();
+
+export type UpdateTaxPolicySettingsDto = z.infer<typeof UpdateTaxPolicySettings>;
+
+export type TaxPolicySettingsResponse = TaxPolicySettingsDto;

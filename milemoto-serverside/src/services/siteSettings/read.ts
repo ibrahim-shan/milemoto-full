@@ -1,9 +1,11 @@
-﻿import type {
+import type {
   BrandingSettingsDto,
   DocumentSettingsDto,
   FeatureTogglesSettingsDto,
   LocalizationSettingsDto,
+  StockDisplaySettingsDto,
   StoreCurrencySettingsDto,
+  TaxPolicySettingsDto,
 } from '@milemoto/types';
 import { getSetting, parseSettingBool } from './shared.js';
 
@@ -67,5 +69,41 @@ export async function getFeatureTogglesSettings(): Promise<FeatureTogglesSetting
     languageSwitcherEnabled: parseSettingBool(languageSwitcherEnabled, false),
     phoneVerificationEnabled: parseSettingBool(phoneVerificationEnabled, true),
     emailVerificationEnabled: parseSettingBool(emailVerificationEnabled, true),
+  };
+}
+
+export async function getStockDisplaySettings(): Promise<StockDisplaySettingsDto> {
+  const productStockDisplayMode = await getSetting('productStockDisplayMode');
+  const lowStockThreshold = await getSetting('productLowStockThreshold');
+
+  return {
+    productStockDisplayMode:
+      (productStockDisplayMode as StockDisplaySettingsDto['productStockDisplayMode']) ||
+      'low_stock_only',
+    lowStockThreshold: lowStockThreshold
+      ? Math.min(100, Math.max(1, parseInt(lowStockThreshold)))
+      : 5,
+  };
+}
+
+export async function getTaxPolicySettings(): Promise<TaxPolicySettingsDto> {
+  const jurisdictionSource = await getSetting('taxJurisdictionSource');
+  const taxableBaseMode = await getSetting('taxTaxableBaseMode');
+  const shippingTaxable = await getSetting('taxShippingTaxable');
+  const roundingPrecision = await getSetting('taxRoundingPrecision');
+  const combinationMode = await getSetting('taxCombinationMode');
+  const fallbackMode = await getSetting('taxFallbackMode');
+
+  return {
+    jurisdictionSource:
+      (jurisdictionSource as TaxPolicySettingsDto['jurisdictionSource']) || 'shipping_country',
+    taxableBaseMode:
+      (taxableBaseMode as TaxPolicySettingsDto['taxableBaseMode']) || 'subtotal_minus_discount',
+    shippingTaxable: parseSettingBool(shippingTaxable, false),
+    roundingPrecision: roundingPrecision
+      ? Math.min(4, Math.max(0, parseInt(roundingPrecision)))
+      : 2,
+    combinationMode: (combinationMode as TaxPolicySettingsDto['combinationMode']) || 'stack',
+    fallbackMode: (fallbackMode as TaxPolicySettingsDto['fallbackMode']) || 'no_tax',
   };
 }

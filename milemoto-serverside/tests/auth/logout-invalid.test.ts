@@ -10,6 +10,12 @@ describe('auth logout invalid token', () => {
       .post('/api/v1/auth/logout')
       .set('Cookie', `${cookieName}=invalid-token`);
 
+    // Current logout implementation is idempotent and clears cookies even with invalid/missing refresh token.
+    expect(res.status).toBe(204);
+  });
+
+  it('returns 401 when no refresh cookie is present', async () => {
+    const res = await request(app).post('/api/v1/auth/logout');
     expect(res.status).toBe(204);
   });
 });

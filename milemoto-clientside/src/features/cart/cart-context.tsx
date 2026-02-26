@@ -6,12 +6,23 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
 
+import { toast } from 'sonner';
+
 import { CartItem, type AddCartItemInput } from '@/features/cart/types';
-import { fetchServerCart, mergeGuestCart } from '@/lib/cart';
+import { getAccessToken, subscribe as subscribeAuth } from '@/lib/authStorage';
+import {
+  clearServerCart,
+  fetchServerCart,
+  mergeGuestCart,
+  removeServerCartItem,
+  setServerCartItemQty,
+} from '@/lib/cart';
+import type { ServerCartResponse } from '@/lib/cart';
 
 type CartContextValue = {
   items: CartItem[];
@@ -27,6 +38,16 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 const STORAGE_KEY = 'mm_cart_items';
+
+function writeGuestCartToStorage(items: CartItem[]) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+function clearGuestCartStorage() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(STORAGE_KEY);
+}
 
 function normalizeQty(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return 1;
@@ -83,21 +104,105 @@ function loadInitialItems(): CartItem[] {
   }
 }
 
+function mapServerCartToLocalItems(response: ServerCartResponse): CartItem[] {
+  return response.items.map(it => ({
+    id: `${it.productSlug}::${it.productVariantId}`,
+    slug: it.productSlug,
+    title: it.productName,
+    ...(it.variantName ? { variantName: it.variantName } : {}),
+    imageSrc: it.imageSrc ?? '/images/placeholder.png',
+    priceMinor: Math.round(it.price * 100),
+    qty: it.quantity,
+    stock: it.available,
+    ...(it.warning ? { warning: it.warning } : {}),
+    productVariantId: it.productVariantId,
+  }));
+}
+
+function notifyCartHydrationChanges(previousItems: CartItem[], nextItems: CartItem[]) {
+  const prevByVariant = new Map<number, CartItem>();
+  previousItems.forEach(it => {
+    if (it.productVariantId != null) prevByVariant.set(it.productVariantId, it);
+  });
+
+  if (prevByVariant.size === 0) return;
+
+  const nextVariantIds = new Set<number>();
+  nextItems.forEach(it => {
+    if (it.productVariantId != null) nextVariantIds.add(it.productVariantId);
+  });
+
+  const skippedCount = [...prevByVariant.keys()].filter(id => !nextVariantIds.has(id)).length;
+  if (skippedCount > 0) {
+    toast.info(
+      skippedCount === 1
+        ? 'Some items were unavailable and were skipped.'
+        : `${skippedCount} items were unavailable and were skipped.`,
+    );
+  }
+
+  const hasPriceChange = nextItems.some(it => {
+    if (it.productVariantId == null) return false;
+    const prev = prevByVariant.get(it.productVariantId);
+    return Boolean(prev && prev.priceMinor !== it.priceMinor);
+  });
+  if (hasPriceChange) {
+    toast.info('Price updated at checkout/cart refresh.');
+  }
+}
+
 export function CartProvider({ children }: PropsWithChildren) {
   const [items, setItems] = useState<CartItem[]>(() => loadInitialItems());
+  const [serverMode, setServerMode] = useState<boolean>(() => Boolean(getAccessToken()));
+  const pendingMergeSnapshotRef = useRef<CartItem[] | null>(null);
+
+  const isAuthed = useCallback(() => Boolean(getAccessToken()), []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+    if (serverMode) return;
+    writeGuestCartToStorage(items);
+  }, [items, serverMode]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const sync = () => {
+      if (Boolean(getAccessToken())) return;
       setItems(loadInitialItems());
     };
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
+  }, []);
+
+  useEffect(() => {
+    let previousAuthed = Boolean(getAccessToken());
+
+    const unsubscribe = subscribeAuth(() => {
+      const authed = Boolean(getAccessToken());
+      setServerMode(authed);
+
+      if (authed && !previousAuthed) {
+        void fetchServerCart().then(response => {
+          if (!response) return;
+          setItems(prev => {
+            const next = mapServerCartToLocalItems(response);
+            const baseline = pendingMergeSnapshotRef.current ?? prev;
+            notifyCartHydrationChanges(baseline, next);
+            pendingMergeSnapshotRef.current = null;
+            return next;
+          });
+        });
+      }
+
+      if (!authed && previousAuthed) {
+        setItems(loadInitialItems());
+      }
+
+      previousAuthed = authed;
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const addItem = useCallback((input: AddCartItemInput) => {
@@ -144,19 +249,65 @@ export function CartProvider({ children }: PropsWithChildren) {
     });
   }, []);
 
-  const removeItem = useCallback((id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
-  }, []);
+  const removeItem = useCallback(
+    (id: string) => {
+      setItems(prev => prev.filter(item => item.id !== id));
+      if (!isAuthed()) return;
+      void (async () => {
+        try {
+          const variantId = items.find(it => it.id === id)?.productVariantId;
+          if (!variantId) return;
+          const serverCart = await fetchServerCart();
+          const serverItem = serverCart?.items.find(it => it.productVariantId === variantId);
+          if (!serverItem) return;
+          const updated = await removeServerCartItem(serverItem.id);
+          if (updated) setItems(mapServerCartToLocalItems(updated));
+        } catch (err) {
+          console.warn('[cart] Failed to sync removeItem to server:', err);
+        }
+      })();
+    },
+    [isAuthed, items],
+  );
 
-  const setItemQty = useCallback((id: string, qty: number) => {
-    setItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, qty: clampQtyToStock(qty, item.stock) } : item,
-      ),
-    );
-  }, []);
+  const setItemQty = useCallback(
+    (id: string, qty: number) => {
+      setItems(prev =>
+        prev.map(item =>
+          item.id === id ? { ...item, qty: clampQtyToStock(qty, item.stock) } : item,
+        ),
+      );
+      if (!isAuthed()) return;
+      void (async () => {
+        try {
+          const localItem = items.find(it => it.id === id);
+          const variantId = localItem?.productVariantId;
+          if (!variantId) return;
+          const nextQty = clampQtyToStock(qty, localItem?.stock);
+          const serverCart = await fetchServerCart();
+          const serverItem = serverCart?.items.find(it => it.productVariantId === variantId);
+          if (!serverItem) return;
+          const updated = await setServerCartItemQty(serverItem.id, nextQty);
+          if (updated) setItems(mapServerCartToLocalItems(updated));
+        } catch (err) {
+          console.warn('[cart] Failed to sync setItemQty to server:', err);
+        }
+      })();
+    },
+    [isAuthed, items],
+  );
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    setItems([]);
+    if (!isAuthed()) return;
+    void clearServerCart()
+      .then(updated => {
+        if (updated) setItems(mapServerCartToLocalItems(updated));
+      })
+      .catch(err => {
+        console.warn('[cart] Failed to sync clear cart to server:', err);
+      });
+  }, [isAuthed]);
 
   const mergeIntoServer = useCallback(async () => {
     // Only send items that have a known productVariantId (server requires it)
@@ -165,10 +316,12 @@ export function CartProvider({ children }: PropsWithChildren) {
       .map(it => ({ productVariantId: it.productVariantId!, quantity: it.qty }));
 
     const success = await mergeGuestCart(serverItems);
+    if (success) pendingMergeSnapshotRef.current = items;
 
     if (success) {
       // Merge succeeded → server is now source of truth, clear local cache
       setItems([]);
+      clearGuestCartStorage();
     } else {
       // Merge failed (network down etc.) → keep items in place so user doesn't lose their cart.
       // loadFromServer() will be called next and will overwrite with server data if reachable.
@@ -184,20 +337,13 @@ export function CartProvider({ children }: PropsWithChildren) {
     const response = await fetchServerCart();
     if (!response) return;
 
-    const mapped: CartItem[] = response.items.map(it => ({
-      id: `${it.productSlug}::${it.productVariantId}`,
-      slug: it.productSlug,
-      title: it.productName,
-      ...(it.variantName ? { variantName: it.variantName } : {}),
-      imageSrc: it.imageSrc ?? '/images/placeholder.png',
-      priceMinor: Math.round(it.price * 100),
-      qty: it.quantity,
-      stock: it.available,
-      ...(it.warning ? { warning: it.warning } : {}),
-      productVariantId: it.productVariantId,
-    }));
-
-    setItems(mapped);
+    setItems(prev => {
+      const next = mapServerCartToLocalItems(response);
+      const baseline = pendingMergeSnapshotRef.current ?? prev;
+      notifyCartHydrationChanges(baseline, next);
+      pendingMergeSnapshotRef.current = null;
+      return next;
+    });
   }, []);
 
   const value = useMemo<CartContextValue>(

@@ -23,6 +23,7 @@ import {
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
+import SortableImageUpload from '@/ui/sortable-upload';
 import { Textarea } from '@/ui/textarea';
 
 type CategoryDialogProps = {
@@ -35,6 +36,7 @@ const INITIAL_FORM = {
   name: '',
   slug: '',
   description: '',
+  imageUrl: null as string | null,
   parentId: null as number | null,
   status: 'active' as 'active' | 'inactive',
 };
@@ -64,6 +66,7 @@ export function CategoryDialog({ category, open, onOpenChange }: CategoryDialogP
             name: category.name,
             slug: category.slug,
             description: category.description || '',
+            imageUrl: category.imageUrl || null,
             parentId: category.parentId,
             status: category.status || 'active',
           }
@@ -97,6 +100,7 @@ export function CategoryDialog({ category, open, onOpenChange }: CategoryDialogP
   };
 
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialData);
+  const isRootCategory = (formData.parentId ?? null) === null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +158,7 @@ export function CategoryDialog({ category, open, onOpenChange }: CategoryDialogP
       ...formData,
       name,
       slug,
+      imageUrl: parentId === null ? (formData.imageUrl ?? null) : null,
       parentId,
     };
 
@@ -186,6 +191,24 @@ export function CategoryDialog({ category, open, onOpenChange }: CategoryDialogP
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Category Image (Parent Categories Only)</Label>
+              {isRootCategory ? (
+                <SortableImageUpload
+                  maxFiles={1}
+                  maxSize={2 * 1024 * 1024}
+                  accept="image/png,image/jpeg,image/webp"
+                  showInstructions={false}
+                  value={formData.imageUrl ? [formData.imageUrl] : []}
+                  onChange={urls => setFormData(prev => ({ ...prev, imageUrl: urls[0] ?? null }))}
+                />
+              ) : (
+                <div className="text-muted-foreground bg-muted/30 rounded-md border p-3 text-sm">
+                  Images are available only for parent categories.
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Category Name*</Label>
               <Input
@@ -233,10 +256,16 @@ export function CategoryDialog({ category, open, onOpenChange }: CategoryDialogP
                 onChange={(value: string | number) => {
                   setFormData({
                     ...formData,
+                    imageUrl: value === 'none' ? formData.imageUrl : null,
                     parentId: value === 'none' ? null : Number(value),
                   });
                 }}
               />
+              {!isRootCategory ? (
+                <p className="text-muted-foreground text-xs">
+                  Subcategories do not use images. Any selected image will be removed.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">

@@ -88,9 +88,15 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
           className="space-y-4 py-2"
         >
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Product Variant</Label>
+            <Label
+              htmlFor="adjustment-product-variant"
+              className="text-right"
+            >
+              Product Variant
+            </Label>
             <div className="col-span-3">
               <GeneralCombobox
+                id="adjustment-product-variant"
                 placeholder="Select variant"
                 value={productVariantId ? String(productVariantId) : ''}
                 onChange={val => setProductVariantId(Number(val))}
@@ -105,9 +111,15 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Location</Label>
+            <Label
+              htmlFor="adjustment-location"
+              className="text-right"
+            >
+              Location
+            </Label>
             <div className="col-span-3">
               <GeneralCombobox
+                id="adjustment-location"
                 placeholder="Select location"
                 value={stockLocationId ? String(stockLocationId) : ''}
                 onChange={val => setStockLocationId(Number(val))}

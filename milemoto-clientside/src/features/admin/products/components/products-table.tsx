@@ -42,6 +42,7 @@ export function ProductsTable({
           {isColumnVisible('subCategory') && <TableHead>Sub Category</TableHead>}
           {isColumnVisible('grade') && <TableHead>Grade</TableHead>}
           {isColumnVisible('warranty') && <TableHead>Warranty</TableHead>}
+          {isColumnVisible('featured') && <TableHead>Featured</TableHead>}
           {isColumnVisible('status') && <TableHead>Status</TableHead>}
           {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
         </TableRow>
@@ -83,6 +84,11 @@ export function ProductsTable({
               {isColumnVisible('warranty') && (
                 <TableCell>
                   <Skeleton className="h-5 w-20" />
+                </TableCell>
+              )}
+              {isColumnVisible('featured') && (
+                <TableCell>
+                  <Skeleton className="h-5 w-16" />
                 </TableCell>
               )}
               {isColumnVisible('status') && (
@@ -166,6 +172,15 @@ export function ProductsTable({
                 </TableCell>
               )}
               {isColumnVisible('warranty') && <TableCell>{product.warrantyName || '-'}</TableCell>}
+              {isColumnVisible('featured') && (
+                <TableCell>
+                  {product.isFeatured ? (
+                    <StatusBadge variant="featured">Featured</StatusBadge>
+                  ) : (
+                    <StatusBadge variant="neutral">No</StatusBadge>
+                  )}
+                </TableCell>
+              )}
               {isColumnVisible('status') && (
                 <TableCell>
                   <StatusBadge variant={product.status === 'active' ? 'success' : 'neutral'}>

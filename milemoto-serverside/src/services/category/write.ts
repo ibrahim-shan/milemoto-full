@@ -49,6 +49,9 @@ export async function createCategory(data: CreateCategoryDto) {
     if (parentSlug === normalizedSlug) {
       throw httpError(409, 'Conflict', 'Subcategory slug cannot match the parent slug');
     }
+    if (data.imageUrl != null) {
+      throw httpError(400, 'BadRequest', 'Subcategories cannot have an image');
+    }
   }
 
   try {
@@ -56,6 +59,7 @@ export async function createCategory(data: CreateCategoryDto) {
       name: data.name,
       slug: data.slug,
       description: data.description ?? null,
+      imageUrl: data.imageUrl ?? null,
       parentId: data.parentId ?? null,
       status: data.status ?? 'active',
     });
@@ -170,6 +174,9 @@ export async function updateCategory(id: number, data: UpdateCategoryDto) {
       if (parentSlug === normalizedSlug) {
         throw httpError(409, 'Conflict', 'Subcategory slug cannot match the parent slug');
       }
+      if (data.imageUrl !== undefined && data.imageUrl !== null) {
+        throw httpError(400, 'BadRequest', 'Subcategories cannot have an image');
+      }
     }
 
     const updates: Partial<CreateCategoryDto> = {};
@@ -177,8 +184,15 @@ export async function updateCategory(id: number, data: UpdateCategoryDto) {
     if (data.name !== undefined) updates.name = data.name;
     if (data.slug !== undefined) updates.slug = data.slug;
     if (data.description !== undefined) updates.description = data.description ?? null;
+    if (data.imageUrl !== undefined && parentIdToUse === null)
+      updates.imageUrl = data.imageUrl ?? null;
     if (data.parentId !== undefined) updates.parentId = data.parentId;
     if (data.status !== undefined) updates.status = data.status;
+
+    // If a root category is converted into a subcategory, clear the root-only image automatically.
+    if (data.parentId !== undefined && parentIdToUse !== null && category.imageUrl) {
+      updates.imageUrl = null;
+    }
 
     if (Object.keys(updates).length === 0) return category;
 

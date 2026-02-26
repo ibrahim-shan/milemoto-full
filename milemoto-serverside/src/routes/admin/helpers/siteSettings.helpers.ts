@@ -19,4 +19,12 @@ export {
   UpdateFeatureTogglesSettings,
   type FeatureTogglesSettingsDto,
   type UpdateFeatureTogglesSettingsDto,
+  StockDisplaySettings,
+  UpdateStockDisplaySettings,
+  type StockDisplaySettingsDto,
+  type UpdateStockDisplaySettingsDto,
+  TaxPolicySettings,
+  UpdateTaxPolicySettings,
+  type TaxPolicySettingsDto,
+  type UpdateTaxPolicySettingsDto,
 } from '@milemoto/types';

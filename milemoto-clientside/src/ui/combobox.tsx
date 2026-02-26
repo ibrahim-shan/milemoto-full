@@ -59,6 +59,7 @@ export function GeneralCombobox({
     selectedValue !== undefined && selectedValue !== null && String(selectedValue) !== ''
       ? data.find(i => String(i.value) === String(selectedValue))?.label
       : undefined;
+  const hasSelection = Boolean(selectedLabel);
 
   const updateValue = (val: string | number) => {
     if (onChange) onChange(val);
@@ -82,8 +83,10 @@ export function GeneralCombobox({
     >
       <PopoverTrigger asChild>
         <button
+          type="button"
           id={id}
           disabled={disabled}
+          aria-label={selectedLabel ?? placeholder}
           className={cn(
             'border-input ring-offset-background flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm outline-none disabled:cursor-not-allowed disabled:opacity-50',
             '!focus:ring-1 !focus:ring-ring',
@@ -91,7 +94,9 @@ export function GeneralCombobox({
             className,
           )}
         >
-          <span className="line-clamp-1">{selectedLabel ?? placeholder}</span>
+          <span className={cn('line-clamp-1', !hasSelection && 'text-muted-foreground/70')}>
+            {selectedLabel ?? placeholder}
+          </span>
 
           <ChevronDown className="h-4 w-4 opacity-50" />
         </button>
@@ -108,6 +113,7 @@ export function GeneralCombobox({
         >
           <Command className="overflow-hidden">
             <CommandInput
+              aria-label="Search options"
               placeholder="Search..."
               className="h-9 text-sm"
               value={resolvedSearchValue}
@@ -207,8 +213,10 @@ export function MultiSelectCombobox({
     >
       <PopoverTrigger asChild>
         <button
+          type="button"
           id={id}
           disabled={disabled}
+          aria-label={selectedItems.length > 0 ? 'Selected options' : placeholder}
           className={cn(
             'border-input ring-offset-background flex min-h-9 w-full items-center justify-between whitespace-nowrap rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm outline-none',
             '!focus:ring-1 !focus:ring-ring',
@@ -245,6 +253,7 @@ export function MultiSelectCombobox({
         >
           <Command className="overflow-hidden">
             <CommandInput
+              aria-label="Search options"
               placeholder="Search..."
               className="h-9 text-sm"
             />

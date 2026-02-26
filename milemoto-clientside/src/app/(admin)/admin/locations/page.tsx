@@ -3,15 +3,12 @@
 import { useState } from 'react';
 
 import {
-  DollarSign,
   Edit,
   MapPin,
   MoreHorizontal,
-  Package,
   Plus,
   Search,
   Trash,
-  TrendingUp,
 } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
@@ -43,7 +40,6 @@ import {
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
 import { Input } from '@/ui/input';
-import { StatsCards } from '@/ui/stats-cards';
 import { StatusBadge } from '@/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
@@ -110,29 +106,6 @@ export default function LocationsPage() {
     0,
   );
 
-  const statItems = [
-    {
-      label: 'Number of stocks',
-      value: '12',
-      icon: MapPin,
-    },
-    {
-      label: 'Products Quantity',
-      value: '1,234',
-      icon: Package,
-    },
-    {
-      label: 'Total Stock Value',
-      value: '$45,231.89',
-      icon: DollarSign,
-    },
-    {
-      label: 'Expected Revenue',
-      value: '$67,890.00',
-      icon: TrendingUp,
-    },
-  ];
-
   return (
     <PermissionGuard requiredPermission="locations.read">
       <Card>
@@ -140,15 +113,13 @@ export default function LocationsPage() {
           <CardTitle>Stock Locations</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* KPIs */}
-          <StatsCards data={statItems} />
-
           {/* Toolbar area */}
           <div className="mb-6 flex items-center justify-between gap-4">
             <div className="relative max-w-sm flex-1">
               <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
               <Input
                 placeholder="Search locations..."
+                aria-label="Search stock locations"
                 className="pl-9"
                 value={search}
                 onChange={e => {

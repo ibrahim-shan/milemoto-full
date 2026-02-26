@@ -26,6 +26,9 @@ function VerifyEmailContent() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get('token');
+  const rawNext = params.get('next');
+  const nextFromQuery =
+    rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
 
   const [initialStatus, initialError] = useMemo((): [Status, string | null] => {
     if (!token) {
@@ -38,6 +41,27 @@ function VerifyEmailContent() {
   const [error, setError] = useState<string | null>(initialError);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const nextUrl = useMemo(() => {
+    if (nextFromQuery) return nextFromQuery;
+
+    try {
+      const stored = window.localStorage.getItem('mm_post_verify_next');
+      if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
+        return stored;
+      }
+    } catch {
+      // ignore storage access issues
+    }
+
+    return null;
+  }, [nextFromQuery]);
+
+  useEffect(() => {
+    if (!nextFromQuery) return;
+    try {
+      window.localStorage.setItem('mm_post_verify_next', nextFromQuery);
+    } catch {}
+  }, [nextFromQuery]);
 
   useEffect(() => {
     if (token) {
@@ -62,8 +86,14 @@ function VerifyEmailContent() {
     }
 
     if (countdown <= 0) {
-      const qs = verifiedEmail ? `?email=${encodeURIComponent(verifiedEmail)}` : '';
-      router.push(`/signin${qs}`);
+      const search = new URLSearchParams();
+      if (verifiedEmail) search.set('email', verifiedEmail);
+      if (nextUrl) search.set('next', nextUrl);
+      try {
+        window.localStorage.removeItem('mm_post_verify_next');
+      } catch {}
+      const qs = search.toString();
+      router.push(`/signin${qs ? `?${qs}` : ''}`);
       return;
     }
 
@@ -72,7 +102,7 @@ function VerifyEmailContent() {
     }, 1000);
 
     return () => window.clearTimeout(id);
-  }, [countdown, router, status, verifiedEmail]);
+  }, [countdown, nextUrl, router, status, verifiedEmail]);
 
   return (
     <StatusDisplay

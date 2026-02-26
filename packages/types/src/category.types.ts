@@ -5,7 +5,7 @@ import {
   type PaginatedResponse,
   type ApiModel,
 } from "./common.types.js";
-import { LowerTrimmedStringSchema, TrimmedStringSchema } from "./zod.helpers.js";
+import { LowerTrimmedStringSchema, NullableUrlSchema, TrimmedStringSchema } from "./zod.helpers.js";
 
 export const CategoryStatus = z.enum(["active", "inactive"]);
 
@@ -13,6 +13,7 @@ export const CreateCategory = z.object({
   name: TrimmedStringSchema.min(1, "Name is required").max(255),
   slug: LowerTrimmedStringSchema.min(1, "Slug is required").max(255),
   description: TrimmedStringSchema.optional(),
+  imageUrl: NullableUrlSchema.optional(),
   parentId: z.number().int().positive().nullable().optional(),
   status: CategoryStatus.default("active"),
 });

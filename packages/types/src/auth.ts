@@ -10,7 +10,25 @@ export type UserDto = {
   role: "user" | "admin";
   status: "active" | "inactive" | "blocked";
   mfaEnabled?: boolean;
+  defaultShippingAddress?: UserAddressDto | null;
 };
+
+export type UserAddressDto = {
+  fullName: string;
+  phone: string;
+  email?: string | null;
+  country: string;
+  countryId?: number | null;
+  state: string;
+  stateId?: number | null;
+  city: string;
+  cityId?: number | null;
+  addressLine1: string;
+  addressLine2?: string | null;
+  postalCode?: string | null;
+};
+
+export type UpdateUserAddressDto = UserAddressDto;
 
 export type UserAuthData = {
   id: number;

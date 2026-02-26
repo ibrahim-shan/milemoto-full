@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Heart, Home, Search, ShoppingCart, User as UserIcon } from 'lucide-react';
 
 import { useCart } from '@/features/cart/cart-context';
+import { useWishlist } from '@/features/wishlist/wishlist-context';
 import { Input } from '@/ui/input';
 
 export function MobileNav({
@@ -18,6 +19,7 @@ export function MobileNav({
   cartOpen: boolean;
 }) {
   const { items } = useCart();
+  const { count: favoriteCount } = useWishlist();
   const itemCount = items.length;
   const [mounted, setMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -200,10 +202,20 @@ export function MobileNav({
                     href="/favorites"
                     className="text-foreground/80 hover:text-foreground flex h-12 w-full max-w-[120px] flex-col items-center justify-center gap-0.5"
                   >
-                    <Heart
-                      className="h-5 w-5"
-                      aria-hidden
-                    />
+                    <span className="relative inline-flex">
+                      <Heart
+                        className="h-5 w-5"
+                        aria-hidden
+                      />
+                      {mounted && favoriteCount > 0 && (
+                        <span
+                          aria-label={`${favoriteCount} items in favorites`}
+                          className="bg-rose-500 text-white absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none"
+                        >
+                          {favoriteCount > 99 ? '99+' : favoriteCount}
+                        </span>
+                      )}
+                    </span>
                     <span className="text-[11px]">Favorites</span>
                   </Link>
                 </li>

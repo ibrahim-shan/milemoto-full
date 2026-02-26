@@ -21,8 +21,16 @@ describe.sequential('goods receipts', () => {
 
   beforeAll(async () => {
     fixtures = await setupPurchaseOrderFixtures([
-      { slug: 'goods_receipts.read', description: 'View goods receipts', resourceGroup: 'Purchasing' },
-      { slug: 'goods_receipts.manage', description: 'Manage goods receipts', resourceGroup: 'Purchasing' },
+      {
+        slug: 'goods_receipts.read',
+        description: 'View goods receipts',
+        resourceGroup: 'Purchasing',
+      },
+      {
+        slug: 'goods_receipts.manage',
+        description: 'Manage goods receipts',
+        resourceGroup: 'Purchasing',
+      },
       { slug: 'stock.read', description: 'View stock', resourceGroup: 'Stock' },
       { slug: 'stock_movements.read', description: 'View stock movements', resourceGroup: 'Stock' },
     ]);
@@ -31,7 +39,9 @@ describe.sequential('goods receipts', () => {
 
   afterAll(async () => {
     if (fixtures?.variantId) {
-      await db.delete(stockmovements).where(eq(stockmovements.productVariantId, fixtures.variantId));
+      await db
+        .delete(stockmovements)
+        .where(eq(stockmovements.productVariantId, fixtures.variantId));
       await db.delete(stocklevels).where(eq(stocklevels.productVariantId, fixtures.variantId));
     }
     if (fixtures) {
@@ -87,6 +97,50 @@ describe.sequential('goods receipts', () => {
       });
 
     expect(invalidRes.status).toBe(400);
+  });
+
+  it('lists goods receipts', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/goods-receipts')
+      .query({ limit: 50 })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('items');
+    const ids = (res.body.items ?? []).map((g: { id: number }) => g.id);
+    expect(ids).toContain(grnId);
+  });
+
+  it('gets a goods receipt by id', async () => {
+    if (!grnId) throw new Error('Missing GRN id');
+    const res = await request(app)
+      .get(`/api/v1/admin/goods-receipts/${grnId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(Number(res.body?.id)).toBe(grnId);
+    expect(res.body?.status).toBe('draft');
+  });
+
+  it('updates a draft goods receipt (change note)', async () => {
+    if (!grnId || !poLineId) throw new Error('Missing GRN or PO line id');
+    const res = await request(app)
+      .put(`/api/v1/admin/goods-receipts/${grnId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        purchaseOrderId: poId,
+        note: 'Updated note',
+        lines: [
+          {
+            purchaseOrderLineId: poLineId,
+            receivedQty: 2,
+            rejectedQty: 0,
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body?.note).toBe('Updated note');
   });
 
   it('posts a goods receipt and updates PO status + inventory', async () => {

@@ -172,7 +172,9 @@ async function request<T>(
 
   if (!res.ok) {
     // On 401, attempt a single refresh then retry (except when calling refresh itself)
-    if (res.status === 401 && !triedRefresh && !path.startsWith('/auth/refresh')) {
+    const hadAuthHeader =
+      typeof headers.Authorization === 'string' && headers.Authorization.trim().length > 0;
+    if (res.status === 401 && !triedRefresh && !path.startsWith('/auth/refresh') && hadAuthHeader) {
       const newTok = await refreshAccessToken();
       if (newTok) {
         const retryHeaders = { ...headers, Authorization: `Bearer ${newTok}` };

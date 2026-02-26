@@ -111,5 +111,11 @@ export function mapStockMovementRow(row: UnknownRow): StockMovementResponse {
       : undefined;
   if (typeof stockLocationName === 'string') base.stockLocationName = stockLocationName;
 
+  const referenceDisplay =
+    row.referenceDisplay === null || typeof row.referenceDisplay === 'string'
+      ? row.referenceDisplay
+      : undefined;
+  if (typeof referenceDisplay === 'string') base.referenceDisplay = referenceDisplay;
+
   return base;
 }

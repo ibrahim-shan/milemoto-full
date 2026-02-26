@@ -3,13 +3,14 @@
 
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
 
 import { CartItem } from '@/features/cart/types';
+import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import { Button } from '@/ui/button';
+import { FallbackImage } from '@/ui/fallback-image';
 
 type Props = {
   open: boolean;
@@ -147,8 +148,9 @@ export function CartDrawer({ open, items, onClose, onRemove, onCheckout }: Props
                       key={it.id}
                       className="flex items-center gap-3"
                     >
-                      <Image
+                      <FallbackImage
                         src={it.imageSrc}
+                        fallbackSrc={IMAGE_PLACEHOLDERS.product4x3}
                         alt={it.title}
                         width={56}
                         height={56}

@@ -5,6 +5,7 @@ import type {
   PaginatedStockMovementResponse,
   StockLevelResponse,
   StockMovementResponse,
+  StockSummaryResponse,
 } from '@milemoto/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -36,6 +37,7 @@ export const stockKeys = {
   levelList: (params: StockLevelListQuery) => [...stockKeys.levels(), params] as const,
   movements: () => [...stockKeys.all, 'movements'] as const,
   movementList: (params: StockMovementListQuery) => [...stockKeys.movements(), params] as const,
+  summary: () => [...stockKeys.all, 'summary'] as const,
 };
 
 type QueryOptions = {
@@ -65,6 +67,14 @@ export function useGetStockMovements(params: StockMovementListQuery) {
   });
 }
 
+export function useGetStockSummary(options?: QueryOptions) {
+  return useQuery({
+    queryKey: stockKeys.summary(),
+    enabled: options?.enabled ?? true,
+    queryFn: async () => authorizedGet<StockSummaryResponse>('/admin/stock/summary'),
+  });
+}
+
 export type StockLevel = StockLevelResponse;
 export type StockMovement = StockMovementResponse;
 
@@ -80,6 +90,7 @@ export function useCreateStockAdjustment() {
       toast.success('Stock adjusted successfully');
       queryClient.invalidateQueries({ queryKey: stockKeys.levels() });
       queryClient.invalidateQueries({ queryKey: stockKeys.movements() });
+      queryClient.invalidateQueries({ queryKey: stockKeys.summary() });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to adjust stock');
@@ -100,6 +111,7 @@ export function useCreateStockTransfer() {
       toast.success('Stock transferred successfully');
       queryClient.invalidateQueries({ queryKey: stockKeys.levels() });
       queryClient.invalidateQueries({ queryKey: stockKeys.movements() });
+      queryClient.invalidateQueries({ queryKey: stockKeys.summary() });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to transfer stock');

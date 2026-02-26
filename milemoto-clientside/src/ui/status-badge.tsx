@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 type StatusBadgeProps = {
   children: ReactNode;
-  variant?: 'success' | 'neutral' | 'warning' | 'error' | 'info' | 'purple';
+  variant?: 'success' | 'neutral' | 'warning' | 'error' | 'info' | 'purple' | 'featured';
   className?: string;
 };
 
@@ -17,6 +17,7 @@ const variantClasses: Record<NonNullable<StatusBadgeProps['variant']>, string> =
   error: 'bg-red-100 text-red-800 border-red-200',
   info: 'bg-sky-100 text-sky-800 border-sky-200',
   purple: 'bg-purple-100 text-purple-800 border-purple-200',
+  featured: 'bg-amber-50 text-amber-700 border-amber-200',
 };
 
 export function StatusBadge({ children, variant = 'neutral', className }: StatusBadgeProps) {
