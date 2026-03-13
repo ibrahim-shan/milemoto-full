@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 
-import { Edit, FolderTree, MoreHorizontal, Plus, Search, Trash } from 'lucide-react';
+import { Edit, FolderTree, MoreHorizontal, Plus, Trash } from 'lucide-react';
 
+import { CategoryFilters } from '@/features/admin/categories/category-filters';
 import { CategoryDialog } from '@/features/admin/categories/category-dialog';
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { Skeleton } from '@/features/feedback/Skeleton';
@@ -13,6 +14,7 @@ import {
   useGetCategories,
   useGetCategoryTree,
 } from '@/hooks/useCategoryQueries';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,35 +34,37 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { FilterConfig, GenericFilter } from '@/ui/generic-filter';
-import { Input } from '@/ui/input';
 import { StatusBadge } from '@/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
 type CategoryNode = Category & { children?: CategoryNode[] };
 
+const CATEGORY_COLUMNS = [
+  { id: 'name', label: 'Name', alwaysVisible: true },
+  { id: 'slug', label: 'Slug' },
+  { id: 'parent', label: 'Parent' },
+  { id: 'description', label: 'Description' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function CategoriesPage() {
-  const columns = [
-    { id: 'name', label: 'Name', alwaysVisible: true },
-    { id: 'slug', label: 'Slug' },
-    { id: 'parent', label: 'Parent' },
-    { id: 'description', label: 'Description' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = CATEGORY_COLUMNS;
 
   // State
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
-  const [filters, setFilters] = useState<Record<string, string | number | string[] | undefined>>({
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
     status: '',
     parentIds: [],
   });
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.categories.columns',
   );
 
   // Also fetch the full tree to look up parent names and populate filter options
@@ -76,28 +80,10 @@ export default function CategoriesPage() {
     }));
   }, [categoryTree]);
 
-  const filterConfig: FilterConfig[] = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-      ],
-    },
-    {
-      key: 'parentIds',
-      label: 'Parent Category',
-      type: 'multiselect',
-      options: parentOptions,
-    },
-  ];
   const { data, isLoading, isError, refetch } = useGetCategories({
     page: 1,
     limit: 100, // Fetch all categories (backend max is 100)
     search,
-    ...(filters.status ? { status: filters.status as 'active' | 'inactive' } : {}),
   });
 
   const deleteMutation = useDeleteCategory();
@@ -127,7 +113,7 @@ export default function CategoriesPage() {
   const nameVisible = columnVisibility['name'] !== false;
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     if (id === 'parent') return nameVisible && columnVisibility[id] !== false;
     return columnVisibility[id] !== false;
   };
@@ -139,16 +125,27 @@ export default function CategoriesPage() {
 
   const filteredItems = React.useMemo(() => {
     let items = data?.items ?? [];
+    const selectedStatus = (filters.status as 'active' | 'inactive' | '') || '';
     const selectedParents = (filters.parentIds as string[]) || [];
-    if (selectedParents.length > 0) {
-      const parentIdSet = new Set(selectedParents.map(id => Number(id)));
-      items = items.filter(
-        item =>
+    const mode = filters.filterMode === 'any' ? 'any' : 'all';
+    const parentIdSet = new Set(selectedParents.map(id => Number(id)));
+
+    items = items.filter(item => {
+      const checks: boolean[] = [];
+      if (selectedStatus) {
+        checks.push(item.status === selectedStatus);
+      }
+      if (selectedParents.length > 0) {
+        checks.push(
           parentIdSet.has(item.id) || (item.parentId !== null && parentIdSet.has(item.parentId)),
-      );
-    }
+        );
+      }
+      if (checks.length === 0) return true;
+      return mode === 'any' ? checks.some(Boolean) : checks.every(Boolean);
+    });
+
     return items;
-  }, [data?.items, filters.parentIds]);
+  }, [data?.items, filters.filterMode, filters.parentIds, filters.status]);
 
   // Helper to get parent category name from the full tree
   const getParentNameFromTree = (parentId: number | null): string => {
@@ -178,23 +175,12 @@ export default function CategoriesPage() {
         <CardContent>
           {/* Toolbar area */}
           <div className="mb-6">
-            <GenericFilter
-              config={filterConfig}
+            <CategoryFilters
               filters={filters}
-              onFilterChange={setFilters}
-              search={
-                <div className="relative max-w-sm">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-                  <Input
-                    placeholder="Search categories..."
-                    className="pl-9"
-                    value={search}
-                    onChange={e => {
-                      setSearch(e.target.value);
-                    }}
-                  />
-                </div>
-              }
+              onFilterChange={nextFilters => setFilters(nextFilters)}
+              search={search}
+              onSearchChange={value => setSearch(value)}
+              parentOptions={parentOptions}
               actions={
                 <div className="flex items-center gap-2">
                   <ColumnVisibilityMenu
@@ -579,3 +565,5 @@ export default function CategoriesPage() {
     </PermissionGuard>
   );
 }
+
+

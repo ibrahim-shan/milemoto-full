@@ -2,32 +2,37 @@
 
 import { useState } from 'react';
 
-import { AlertTriangle, DollarSign, MapPin, Package, Search, TrendingUp } from 'lucide-react';
+import { AlertTriangle, DollarSign, MapPin, Package, TrendingUp } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
+import { StockFilters } from '@/features/admin/stock/stock-filters';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useDefaultCurrency } from '@/hooks/useDefaultCurrency';
 import { useGetStockLevels, useGetStockSummary } from '@/hooks/useStockQueries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { ColumnVisibilityMenu } from '@/ui/column-visibility-menu';
-import { Input } from '@/ui/input';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { StatsCards } from '@/ui/stats-cards';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/tooltip';
 
+const STOCK_COLUMNS: Array<{ id: string; label: string; alwaysVisible?: boolean }> = [
+  { id: 'sku', label: 'SKU', alwaysVisible: true },
+  { id: 'product', label: 'Product / Variant' },
+  { id: 'location', label: 'Location' },
+  { id: 'buyingPrice', label: 'Buying Price' },
+  { id: 'sellingPrice', label: 'Selling Price' },
+  { id: 'onHand', label: 'On Hand' },
+  { id: 'allocated', label: 'Allocated' },
+  { id: 'onOrder', label: 'On Order' },
+];
+
 export default function StockPage() {
-  const columns: Array<{ id: string; label: string; alwaysVisible?: boolean }> = [
-    { id: 'sku', label: 'SKU' },
-    { id: 'product', label: 'Product / Variant' },
-    { id: 'location', label: 'Location' },
-    { id: 'buyingPrice', label: 'Buying Price' },
-    { id: 'sellingPrice', label: 'Selling Price' },
-    { id: 'onHand', label: 'On Hand' },
-    { id: 'allocated', label: 'Allocated' },
-    { id: 'onOrder', label: 'On Order' },
-  ];
+  const columns = STOCK_COLUMNS;
 
   const fmtPrice = (val: number | null | undefined) =>
     val == null ? '—' : `$${Number(val).toFixed(2)}`;
@@ -35,15 +40,54 @@ export default function StockPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const [sortBy, setSortBy] = useState<
+    | 'sku'
+    | 'productName'
+    | 'stockLocationName'
+    | 'costPrice'
+    | 'price'
+    | 'onHand'
+    | 'allocated'
+    | 'onOrder'
+    | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<
+    Record<string, string | number | boolean | string[] | undefined>
+  >({
+    brandId: '',
+    categoryId: '',
+    subCategoryId: '',
+    stockLocationId: '',
+    filterMode: 'all',
+    lowStockOnly: false,
+    outOfStockOnly: false,
+    allocatedOnly: false,
+    onOrderOnly: false,
+  });
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.stock.columns',
   );
 
-  const { data, isLoading, isError, refetch } = useGetStockLevels({
+  const stockLevelQuery = {
     page,
     limit: pageSize,
     search,
-  });
+    ...(filters.brandId ? { brandId: Number(filters.brandId) } : {}),
+    ...(filters.categoryId ? { categoryId: Number(filters.categoryId) } : {}),
+    ...(filters.subCategoryId ? { subCategoryId: Number(filters.subCategoryId) } : {}),
+    ...(filters.stockLocationId ? { stockLocationId: Number(filters.stockLocationId) } : {}),
+    ...(filters.lowStockOnly === true ? { lowStockOnly: true } : {}),
+    ...(filters.outOfStockOnly === true ? { outOfStockOnly: true } : {}),
+    ...(filters.allocatedOnly === true ? { allocatedOnly: true } : {}),
+    ...(filters.onOrderOnly === true ? { onOrderOnly: true } : {}),
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
+  };
+
+  const { data, isLoading, isError, refetch } = useGetStockLevels(stockLevelQuery);
   const { data: summary } = useGetStockSummary();
   const { formatCurrency } = useDefaultCurrency();
 
@@ -52,7 +96,7 @@ export default function StockPage() {
   const totalPages = data?.totalPages ?? Math.ceil((totalCount || 0) / pageSize);
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
   const visibleColumnCount = columns.reduce(
@@ -82,6 +126,12 @@ export default function StockPage() {
     },
   ];
 
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
+
   return (
     <PermissionGuard requiredPermission="stock.read">
       <Card>
@@ -91,40 +141,129 @@ export default function StockPage() {
         <CardContent>
           <StatsCards data={statItems} />
 
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div className="relative max-w-sm flex-1">
-              <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-              <Input
-                aria-label="Search stock levels"
-                placeholder="Search by SKU, product, or location..."
-                className="pl-9"
-                value={search}
-                onChange={e => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-            <ColumnVisibilityMenu
-              columns={columns}
-              visibility={columnVisibility}
-              onToggle={(columnId, visible) =>
-                setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
+          <div className="mb-6">
+            <StockFilters
+              filters={filters}
+              onFilterChange={nextFilters => {
+                setFilters(nextFilters);
+                setPage(1);
+              }}
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
+              actions={
+                <ColumnVisibilityMenu
+                  columns={columns}
+                  visibility={columnVisibility}
+                  onToggle={(columnId, visible) =>
+                    setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
+                  }
+                />
               }
             />
+          </div>
+
+          <div className="text-muted-foreground mb-4 hidden rounded-md border p-3 font-mono text-xs">
+            <div>debug.filters: {JSON.stringify(filters)}</div>
+            <div>debug.query: {JSON.stringify(stockLevelQuery)}</div>
+            <div>
+              debug.result: {isLoading ? 'loading' : `items=${items.length}, total=${totalCount}`}
+            </div>
           </div>
 
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('sku') && <TableHead>SKU</TableHead>}
-                {isColumnVisible('product') && <TableHead>Product / Variant</TableHead>}
-                {isColumnVisible('location') && <TableHead>Location</TableHead>}
-                {isColumnVisible('buyingPrice') && <TableHead>Buying Price</TableHead>}
-                {isColumnVisible('sellingPrice') && <TableHead>Selling Price</TableHead>}
-                {isColumnVisible('onHand') && <TableHead>On Hand</TableHead>}
-                {isColumnVisible('allocated') && <TableHead>Allocated</TableHead>}
-                {isColumnVisible('onOrder') && <TableHead>On Order</TableHead>}
+                {isColumnVisible('sku') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="SKU"
+                      columnKey="sku"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('product') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Product / Variant"
+                      columnKey="productName"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('location') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Location"
+                      columnKey="stockLocationName"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('buyingPrice') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Buying Price"
+                      columnKey="costPrice"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('sellingPrice') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Selling Price"
+                      columnKey="price"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('onHand') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="On Hand"
+                      columnKey="onHand"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('allocated') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Allocated"
+                      columnKey="allocated"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('onOrder') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="On Order"
+                      columnKey="onOrder"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -285,3 +424,4 @@ export default function StockPage() {
     </PermissionGuard>
   );
 }
+

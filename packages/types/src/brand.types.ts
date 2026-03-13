@@ -17,7 +17,12 @@ export const CreateBrand = z.object({
 });
 
 export const BrandListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: BrandStatus.optional(),
+  sortBy: z
+    .enum(["name", "slug", "description", "status", "createdAt", "updatedAt"])
+    .optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type BrandListQueryDto = z.infer<typeof BrandListQuery>;

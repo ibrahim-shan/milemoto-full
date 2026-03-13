@@ -15,6 +15,8 @@ import { useGetStockMovements } from '@/hooks/useStockQueries';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { Input } from '@/ui/input';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
@@ -25,6 +27,8 @@ function getReferenceHref(referenceType: string, referenceId: number) {
     case 'customer_order':
     case 'order':
       return `/admin/orders/${referenceId}`;
+    case 'order_request_return':
+      return `/admin/order-requests/${referenceId}`;
     case 'purchaseOrder':
       return `/admin/purchase-orders/${referenceId}`;
     default:
@@ -36,12 +40,18 @@ export default function StockMovementsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<
+    'createdAt' | 'sku' | 'productName' | 'stockLocationName' | 'quantity' | 'type' | 'referenceType' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
   const { formatDateTime } = useLocalizationFormat();
 
   const { data, isLoading, isError, refetch } = useGetStockMovements({
     page,
     limit: pageSize,
     search,
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
   const items = data?.items ?? [];
@@ -49,6 +59,11 @@ export default function StockMovementsPage() {
   const totalPages = data?.totalPages ?? Math.ceil((totalCount || 0) / pageSize);
   const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   return (
     <PermissionGuard requiredPermission="stock.read">
@@ -94,13 +109,69 @@ export default function StockMovementsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Product / Variant</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Reference</TableHead>
+                <TableHead>
+                  <SortableTableHead
+                    label="Date"
+                    columnKey="createdAt"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
+                <TableHead>
+                  <SortableTableHead
+                    label="SKU"
+                    columnKey="sku"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
+                <TableHead>
+                  <SortableTableHead
+                    label="Product / Variant"
+                    columnKey="productName"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
+                <TableHead>
+                  <SortableTableHead
+                    label="Location"
+                    columnKey="stockLocationName"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
+                <TableHead>
+                  <SortableTableHead
+                    label="Quantity"
+                    columnKey="quantity"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
+                <TableHead>
+                  <SortableTableHead
+                    label="Type"
+                    columnKey="type"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
+                <TableHead>
+                  <SortableTableHead
+                    label="Reference"
+                    columnKey="referenceType"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

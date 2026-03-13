@@ -2,14 +2,18 @@ import type {
   UpdateBrandingSettingsDto,
   UpdateDocumentSettingsDto,
   UpdateFeatureTogglesSettingsDto,
+  UpdateInvoicePolicySettingsDto,
   UpdateLocalizationSettingsDto,
+  UpdateOrderRequestPolicySettingsDto,
   UpdateStockDisplaySettingsDto,
   UpdateStoreCurrencySettingsDto,
   UpdateTaxPolicySettingsDto,
   BrandingSettingsDto,
   DocumentSettingsDto,
   FeatureTogglesSettingsDto,
+  InvoicePolicySettingsDto,
   LocalizationSettingsDto,
+  OrderRequestPolicySettingsDto,
   StockDisplaySettingsDto,
   StoreCurrencySettingsDto,
   TaxPolicySettingsDto,
@@ -18,7 +22,9 @@ import {
   getBrandingSettings,
   getDocumentSettings,
   getFeatureTogglesSettings,
+  getInvoicePolicySettings,
   getLocalizationSettings,
+  getOrderRequestPolicySettings,
   getStockDisplaySettings,
   getStoreCurrencySettings,
   getTaxPolicySettings,
@@ -144,4 +150,33 @@ export async function updateTaxPolicySettings(
   }
 
   return await getTaxPolicySettings();
+}
+
+export async function updateOrderRequestPolicySettings(
+  data: UpdateOrderRequestPolicySettingsDto
+): Promise<OrderRequestPolicySettingsDto> {
+  if (data.returnWindowDays !== undefined) {
+    await setSetting('orderReturnWindowDays', String(data.returnWindowDays));
+  }
+  if (data.refundWindowDays !== undefined) {
+    await setSetting('orderRefundWindowDays', String(data.refundWindowDays));
+  }
+  if (data.returnRestockLocationId !== undefined) {
+    await setSetting('orderReturnRestockLocationId', String(data.returnRestockLocationId));
+  }
+
+  return await getOrderRequestPolicySettings();
+}
+
+export async function updateInvoicePolicySettings(
+  data: UpdateInvoicePolicySettingsDto
+): Promise<InvoicePolicySettingsDto> {
+  if (data.autoGenerateEnabled !== undefined) {
+    await setSetting('invoiceAutoGenerateEnabled', String(data.autoGenerateEnabled));
+  }
+  if (data.autoGenerateTrigger !== undefined) {
+    await setSetting('invoiceAutoGenerateTrigger', data.autoGenerateTrigger);
+  }
+
+  return await getInvoicePolicySettings();
 }

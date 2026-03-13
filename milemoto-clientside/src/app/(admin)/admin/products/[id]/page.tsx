@@ -73,6 +73,7 @@ export default function ProductDetailsPage() {
           <ProductOverviewTab product={product} />
 
           <ProductVariantsTab
+            productName={product.name}
             search={variantSearch}
             onSearchChange={onVariantSearchChange}
             variants={filteredVariants}

@@ -36,3 +36,6 @@ export * from "../storefront.types.js";
 export * from "../checkout.types.js";
 export * from "../order.types.js";
 export * from "../wishlist.types.js";
+export * from "../review.types.js";
+export * from "../coupon.types.js";
+export * from "../invoice.types.js";

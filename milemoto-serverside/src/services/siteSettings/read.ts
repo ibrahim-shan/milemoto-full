@@ -2,7 +2,9 @@ import type {
   BrandingSettingsDto,
   DocumentSettingsDto,
   FeatureTogglesSettingsDto,
+  InvoicePolicySettingsDto,
   LocalizationSettingsDto,
+  OrderRequestPolicySettingsDto,
   StockDisplaySettingsDto,
   StoreCurrencySettingsDto,
   TaxPolicySettingsDto,
@@ -105,5 +107,34 @@ export async function getTaxPolicySettings(): Promise<TaxPolicySettingsDto> {
       : 2,
     combinationMode: (combinationMode as TaxPolicySettingsDto['combinationMode']) || 'stack',
     fallbackMode: (fallbackMode as TaxPolicySettingsDto['fallbackMode']) || 'no_tax',
+  };
+}
+
+export async function getOrderRequestPolicySettings(): Promise<OrderRequestPolicySettingsDto> {
+  const returnWindowDays = await getSetting('orderReturnWindowDays');
+  const refundWindowDays = await getSetting('orderRefundWindowDays');
+  const returnRestockLocationId = await getSetting('orderReturnRestockLocationId');
+
+  return {
+    returnWindowDays: returnWindowDays
+      ? Math.min(365, Math.max(0, parseInt(returnWindowDays)))
+      : 30,
+    refundWindowDays: refundWindowDays
+      ? Math.min(365, Math.max(0, parseInt(refundWindowDays)))
+      : 30,
+    returnRestockLocationId: returnRestockLocationId
+      ? Math.max(0, parseInt(returnRestockLocationId))
+      : 0,
+  };
+}
+
+export async function getInvoicePolicySettings(): Promise<InvoicePolicySettingsDto> {
+  const autoGenerateEnabled = await getSetting('invoiceAutoGenerateEnabled');
+  const autoGenerateTrigger = await getSetting('invoiceAutoGenerateTrigger');
+
+  return {
+    autoGenerateEnabled: parseSettingBool(autoGenerateEnabled, true),
+    autoGenerateTrigger:
+      (autoGenerateTrigger as InvoicePolicySettingsDto['autoGenerateTrigger']) || 'delivered',
   };
 }

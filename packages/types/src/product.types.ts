@@ -105,6 +105,7 @@ export type UpdateProductDto = z.infer<typeof UpdateProduct>;
 export type ProductVariantDto = z.infer<typeof ProductVariantSchema>;
 
 export const ProductListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: z.preprocess(
     (val) => (val === "" ? undefined : val),
     z.enum(["active", "inactive"]).optional(),
@@ -125,6 +126,9 @@ export const ProductListQuery = PaginationSchema.extend({
   brandId: z
     .union([z.coerce.number().int().positive(), z.array(z.coerce.number().int().positive())])
     .optional(),
+  vendorId: z
+    .union([z.coerce.number().int().positive(), z.array(z.coerce.number().int().positive())])
+    .optional(),
   gradeId: z
     .union([z.coerce.number().int().positive(), z.array(z.coerce.number().int().positive())])
     .optional(),
@@ -134,6 +138,34 @@ export const ProductListQuery = PaginationSchema.extend({
   specValueId: z
     .union([z.coerce.number().int().positive(), z.array(z.coerce.number().int().positive())])
     .optional(),
+  sku: z.preprocess(
+    (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
+    z.string().trim().min(1).max(255).optional(),
+  ),
+  priceMin: z.preprocess(
+    (val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number().min(0).optional(),
+  ),
+  priceMax: z.preprocess(
+    (val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number().min(0).optional(),
+  ),
+  sortBy: z
+    .enum([
+      "id",
+      "name",
+      "brand",
+      "category",
+      "subCategory",
+      "grade",
+      "warranty",
+      "featured",
+      "status",
+      "createdAt",
+      "updatedAt",
+    ])
+    .optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type ProductListQueryDto = z.infer<typeof ProductListQuery>;
@@ -170,6 +202,7 @@ export interface ProductResponse extends ApiModel<Product> {
   specifications?: ProductSpecificationResponse[];
   variants?: ProductVariantResponse[];
   images?: string[];
+  imagePath?: string | null;
   brandName?: string;
   categoryName?: string;
   subCategoryName?: string;

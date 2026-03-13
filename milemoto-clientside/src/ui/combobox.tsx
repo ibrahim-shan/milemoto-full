@@ -88,7 +88,7 @@ export function GeneralCombobox({
           disabled={disabled}
           aria-label={selectedLabel ?? placeholder}
           className={cn(
-            'border-input ring-offset-background flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm outline-none disabled:cursor-not-allowed disabled:opacity-50',
+            'border-input placeholder:text-muted-foreground/70 ring-offset-background flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border bg-transparent px-3 py-1 text-left text-base font-normal leading-normal shadow-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
             '!focus:ring-1 !focus:ring-ring',
             '[&>span]:line-clamp-1',
             className,
@@ -218,7 +218,7 @@ export function MultiSelectCombobox({
           disabled={disabled}
           aria-label={selectedItems.length > 0 ? 'Selected options' : placeholder}
           className={cn(
-            'border-input ring-offset-background flex min-h-9 w-full items-center justify-between whitespace-nowrap rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm outline-none',
+            'border-input placeholder:text-muted-foreground/70 ring-offset-background flex min-h-9 w-full items-center justify-between whitespace-nowrap rounded-md border bg-transparent px-3 py-1 text-left text-base font-normal leading-normal shadow-sm outline-none transition-colors md:text-sm',
             '!focus:ring-1 !focus:ring-ring',
             '[&>span]:line-clamp-1',
             className,
@@ -234,7 +234,7 @@ export function MultiSelectCombobox({
                 </span>
               )
             ) : (
-              <span className="line-clamp-1">{placeholder}</span>
+              <span className="text-muted-foreground/70 line-clamp-1">{placeholder}</span>
             )}
           </div>
 

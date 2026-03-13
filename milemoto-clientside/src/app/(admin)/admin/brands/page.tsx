@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 
-import { Edit, MoreHorizontal, Plus, Search, Tag, Trash } from 'lucide-react';
+import { Edit, MoreHorizontal, Plus, Tag, Trash } from 'lucide-react';
 
+import { BrandFilters } from '@/features/admin/brands/brand-filters';
 import { BrandDialog } from '@/features/admin/brands/brand-dialog';
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
 import { Brand, useDeleteBrand, useGetBrands } from '@/hooks/useBrandQueries';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,33 +30,40 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { FilterConfig, GenericFilter } from '@/ui/generic-filter';
-import { Input } from '@/ui/input';
 import { StatusBadge } from '@/ui/status-badge';
+import { SortDirection, SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+const BRAND_COLUMNS = [
+  { id: 'name', label: 'Name', alwaysVisible: true },
+  { id: 'slug', label: 'Slug' },
+  { id: 'description', label: 'Description' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function BrandsPage() {
-  const columns = [
-    { id: 'name', label: 'Name' },
-    { id: 'slug', label: 'Slug' },
-    { id: 'description', label: 'Description' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = BRAND_COLUMNS;
 
   // State
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<Record<string, string | number | string[] | undefined>>({
+  const [sortBy, setSortBy] = useState<
+    'name' | 'slug' | 'description' | 'status' | 'createdAt' | 'updatedAt' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
     status: '',
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [brandToDelete, setBrandToDelete] = useState<Brand | null>(null);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.brands.columns',
   );
 
   // Queries
@@ -62,7 +71,10 @@ export default function BrandsPage() {
     page,
     limit: pageSize,
     search,
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
     ...(filters.status ? { status: filters.status as 'active' | 'inactive' } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
   const deleteMutation = useDeleteBrand();
@@ -91,7 +103,7 @@ export default function BrandsPage() {
 
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
 
@@ -102,18 +114,11 @@ export default function BrandsPage() {
 
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
-
-  const filterConfig: FilterConfig[] = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-      ],
-    },
-  ];
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   return (
     <PermissionGuard requiredPermission="brands.read">
@@ -124,27 +129,17 @@ export default function BrandsPage() {
         <CardContent>
           {/* Toolbar area */}
           <div className="mb-6">
-            <GenericFilter
-              config={filterConfig}
+            <BrandFilters
               filters={filters}
               onFilterChange={nextFilters => {
                 setFilters(nextFilters);
                 setPage(1);
               }}
-              search={
-                <div className="relative max-w-sm flex-1">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-                  <Input
-                    placeholder="Search brands..."
-                    className="pl-9"
-                    value={search}
-                    onChange={e => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                  />
-                </div>
-              }
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
               actions={
                 <div className="flex items-center gap-2">
                   <ColumnVisibilityMenu
@@ -171,10 +166,50 @@ export default function BrandsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('name') && <TableHead>Name</TableHead>}
-                {isColumnVisible('slug') && <TableHead>Slug</TableHead>}
-                {isColumnVisible('description') && <TableHead>Description</TableHead>}
-                {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                {isColumnVisible('name') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Name"
+                      columnKey="name"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('slug') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Slug"
+                      columnKey="slug"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('description') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Description"
+                      columnKey="description"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('status') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
                 {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -354,3 +389,4 @@ export default function BrandsPage() {
     </PermissionGuard>
   );
 }
+

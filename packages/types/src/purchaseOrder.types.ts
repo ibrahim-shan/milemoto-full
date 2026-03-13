@@ -54,11 +54,14 @@ export const UpdatePurchaseOrder = CreatePurchaseOrder.extend({
 }).partial();
 
 export const PurchaseOrderListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: PurchaseOrderStatus.optional(),
   vendorId: z.coerce.number().int().positive().optional(),
   paymentMethodId: z.coerce.number().int().positive().optional(),
   dateFrom: OptionalDateOnlyStringSchema,
   dateTo: OptionalDateOnlyStringSchema,
+  sortBy: z.enum(["poNumber", "subject", "status", "total", "createdAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type CreatePurchaseOrderDto = z.infer<typeof CreatePurchaseOrder>;
@@ -93,3 +96,7 @@ export interface PurchaseOrderResponse
 
 export type PaginatedPurchaseOrderResponse =
   PaginatedResponse<PurchaseOrderResponse>;
+
+export interface PurchaseOrderFilterOptionsResponse {
+  vendors: Array<{ id: number; name: string }>;
+}

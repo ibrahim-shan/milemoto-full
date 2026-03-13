@@ -146,7 +146,7 @@ export function CartDrawer({ open, items, onClose, onRemove, onCheckout }: Props
                   {items.map(it => (
                     <li
                       key={it.id}
-                      className="flex items-center gap-3"
+                      className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-start gap-3"
                     >
                       <FallbackImage
                         src={it.imageSrc}
@@ -156,7 +156,7 @@ export function CartDrawer({ open, items, onClose, onRemove, onCheckout }: Props
                         height={56}
                         className="border-border/60 rounded border object-cover"
                       />
-                      <div className="min-w-0 grow">
+                      <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{it.title}</p>
                         {it.variantName && (
                           <p className="text-foreground/50 truncate text-xs">{it.variantName}</p>
@@ -179,7 +179,7 @@ export function CartDrawer({ open, items, onClose, onRemove, onCheckout }: Props
                         size="xs"
                         onClick={() => onRemove(it.id)}
                         aria-label={`Remove ${it.title}`}
-                        className="text-foreground/70 hover:text-foreground"
+                        className="text-foreground/70 hover:text-foreground mt-0.5 shrink-0 self-start whitespace-nowrap"
                       >
                         Remove
                       </Button>

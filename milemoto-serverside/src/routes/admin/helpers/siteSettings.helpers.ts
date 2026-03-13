@@ -27,4 +27,12 @@ export {
   UpdateTaxPolicySettings,
   type TaxPolicySettingsDto,
   type UpdateTaxPolicySettingsDto,
+  OrderRequestPolicySettings,
+  UpdateOrderRequestPolicySettings,
+  type OrderRequestPolicySettingsDto,
+  type UpdateOrderRequestPolicySettingsDto,
+  InvoicePolicySettings,
+  UpdateInvoicePolicySettings,
+  type InvoicePolicySettingsDto,
+  type UpdateInvoicePolicySettingsDto,
 } from '@milemoto/types';

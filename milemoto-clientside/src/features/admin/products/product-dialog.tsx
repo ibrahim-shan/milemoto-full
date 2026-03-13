@@ -65,12 +65,12 @@ export function ProductDialog({
   // Form Setup
   const methods = useForm<CreateProductDto>({
     resolver: zodResolver(CreateProduct) as unknown as Resolver<CreateProductDto>,
-      defaultValues: {
-        name: '',
-        shortDescription: '',
-        longDescription: '',
-        isFeatured: false,
-        brandId: 0,
+    defaultValues: {
+      name: '',
+      shortDescription: '',
+      longDescription: '',
+      isFeatured: false,
+      brandId: 0,
       categoryId: 0,
       subCategoryId: 0,
       gradeId: 0,

@@ -12,6 +12,15 @@ import {
 } from "./zod.helpers.js";
 
 export const VendorStatus = z.enum(["active", "inactive"]);
+export const VendorSortBy = z.enum([
+  "name",
+  "country",
+  "status",
+  "email",
+  "createdAt",
+  "updatedAt",
+]);
+export const VendorSortDir = z.enum(["asc", "desc"]);
 
 export const CreateVendor = z.object({
   name: TrimmedStringSchema.min(1, "Name is required").max(255),
@@ -33,6 +42,9 @@ export type UpdateVendorDto = z.infer<typeof UpdateVendor>;
 export const VendorListQuery = PaginationSchema.extend({
   status: VendorStatus.optional(),
   country: z.union([TrimmedStringSchema, z.array(TrimmedStringSchema)]).optional(),
+  filterMode: z.enum(["all", "any"]).optional(),
+  sortBy: VendorSortBy.optional(),
+  sortDir: VendorSortDir.optional(),
 });
 
 export type VendorListQueryDto = z.infer<typeof VendorListQuery>;

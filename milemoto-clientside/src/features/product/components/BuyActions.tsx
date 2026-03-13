@@ -154,6 +154,16 @@ export function BuyActions({
         toast.error('Failed to prepare checkout. Please try again.');
         return;
       }
+      addItem({
+        slug,
+        title,
+        ...(variantName !== undefined ? { variantName } : {}),
+        priceMinor,
+        imageSrc,
+        qty: safeQty,
+        stock,
+        productVariantId,
+      });
       router.push('/checkout');
     } catch (err) {
       handleServerStockError(err, 'Failed to prepare checkout. Please try again.');

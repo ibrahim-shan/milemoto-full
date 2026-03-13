@@ -13,6 +13,10 @@ export default function PurchaseOrdersPage() {
     columns,
     search,
     onSearchChange,
+    filters,
+    onFiltersChange,
+    vendorOptions,
+    paymentMethodOptions,
     columnVisibility,
     onToggleColumn,
     onAdd,
@@ -27,6 +31,9 @@ export default function PurchaseOrdersPage() {
     decimals,
     formatDateTime,
     getActionItems,
+    sortBy,
+    sortDir,
+    onSortChange,
     page,
     pageSize,
     totalCount,
@@ -56,6 +63,10 @@ export default function PurchaseOrdersPage() {
           <PurchaseOrdersToolbar
             search={search}
             onSearchChange={onSearchChange}
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+            vendorOptions={vendorOptions}
+            paymentMethodOptions={paymentMethodOptions}
             columns={columns}
             columnVisibility={columnVisibility}
             onToggleColumn={onToggleColumn}
@@ -74,6 +85,9 @@ export default function PurchaseOrdersPage() {
             decimals={decimals}
             formatDateTime={formatDateTime}
             getActionItems={getActionItems}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSortChange={onSortChange}
           />
 
           <TablePaginationFooter

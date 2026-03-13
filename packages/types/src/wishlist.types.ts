@@ -17,6 +17,9 @@ export interface WishlistItemResponse {
   productName: string;
   imageSrc: string | null;
   price: number;
+  isActive: boolean;
+  hasActiveVariant: boolean;
+  unavailableReason: "inactive" | "unavailable" | null;
   addedAt: string;
 }
 
@@ -24,4 +27,3 @@ export interface WishlistResponse {
   items: WishlistItemResponse[];
   itemCount: number;
 }
-

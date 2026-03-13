@@ -9,6 +9,7 @@ export type CustomerListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  filterMode?: 'all' | 'any';
   status?: 'active' | 'inactive' | 'blocked';
   ordersMin?: number;
   ordersMax?: number;
@@ -16,6 +17,8 @@ export type CustomerListQuery = {
   spentMax?: number;
   dateStart?: string;
   dateEnd?: string;
+  sortBy?: 'fullName' | 'email' | 'createdAt' | 'totalOrders' | 'totalSpent' | 'status';
+  sortDir?: 'asc' | 'desc';
 };
 
 // Keys

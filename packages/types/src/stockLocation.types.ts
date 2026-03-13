@@ -12,6 +12,15 @@ export const StockLocationType = z.enum([
 ]);
 
 export const StockLocationStatus = z.enum(["active", "inactive"]);
+export const StockLocationSortBy = z.enum([
+  "name",
+  "type",
+  "status",
+  "description",
+  "createdAt",
+  "updatedAt",
+]);
+export const StockLocationSortDir = z.enum(["asc", "desc"]);
 
 export const CreateStockLocation = z.object({
   name: TrimmedStringSchema.min(1, "Name is required").max(255),
@@ -30,6 +39,9 @@ export const UpdateStockLocation = CreateStockLocation.partial();
 export const StockLocationListQuery = PaginationSchema.extend({
   status: StockLocationStatus.optional(),
   type: StockLocationType.optional(),
+  filterMode: z.enum(["all", "any"]).optional(),
+  sortBy: StockLocationSortBy.optional(),
+  sortDir: StockLocationSortDir.optional(),
 });
 
 export type CreateStockLocationDto = z.infer<typeof CreateStockLocation>;

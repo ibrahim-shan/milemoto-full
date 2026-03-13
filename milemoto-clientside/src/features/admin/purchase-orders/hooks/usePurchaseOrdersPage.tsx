@@ -4,21 +4,25 @@ import { useState } from 'react';
 
 import { Archive, CircleCheckBig, Edit, Eye, X } from 'lucide-react';
 
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useGetActiveCurrencies } from '@/hooks/useCurrencyQueries';
 import { useDefaultCurrency } from '@/hooks/useDefaultCurrency';
 import { useLocalizationFormat } from '@/hooks/useLocalizationFormat';
+import { useGetPaymentMethods } from '@/hooks/usePaymentMethodQueries';
 import {
   PurchaseOrder,
   useApprovePurchaseOrder,
   useCancelPurchaseOrder,
   useClosePurchaseOrder,
   useCreatePurchaseOrder,
+  useGetPurchaseOrderFilterOptions,
   useGetPurchaseOrder,
   useGetPurchaseOrders,
   useRejectPurchaseOrder,
   useSubmitPurchaseOrder,
   useUpdatePurchaseOrder,
 } from '@/hooks/usePurchaseOrderQueries';
+import type { SortDirection } from '@/ui/sortable-table-head';
 import type { TableActionItem } from '@/ui/table-actions-menu';
 
 import { PURCHASE_ORDER_COLUMNS } from '../constants';
@@ -30,8 +34,29 @@ export function usePurchaseOrdersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<
+    'poNumber' | 'subject' | 'status' | 'total' | 'createdAt' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<
+    Record<string, string | number | boolean | string[] | undefined>
+  >({
+    filterMode: 'all',
+    status: '',
+    vendorId: '',
+    paymentMethodId: '',
+    dateFrom: '',
+    dateTo: '',
+  });
   const { formatDateTime } = useLocalizationFormat();
   const { data: currenciesData } = useGetActiveCurrencies();
+  const { data: filterOptionsData } = useGetPurchaseOrderFilterOptions();
+  const { data: paymentMethodsData } = useGetPaymentMethods({
+    page: 1,
+    limit: 100,
+    search: '',
+    status: 'active',
+  });
   const { position, decimals } = useDefaultCurrency();
   const currencyPosition: 'before' | 'after' = position === 'after' ? 'after' : 'before';
 
@@ -39,6 +64,14 @@ export function usePurchaseOrdersPage() {
     page,
     limit: pageSize,
     search,
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
+    ...(filters.status ? { status: filters.status as string } : {}),
+    ...(filters.vendorId ? { vendorId: Number(filters.vendorId) } : {}),
+    ...(filters.paymentMethodId ? { paymentMethodId: Number(filters.paymentMethodId) } : {}),
+    ...(filters.dateFrom ? { dateFrom: String(filters.dateFrom) } : {}),
+    ...(filters.dateTo ? { dateTo: String(filters.dateTo) } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
   const submitMutation = useSubmitPurchaseOrder();
@@ -57,9 +90,12 @@ export function usePurchaseOrdersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogSession, setDialogSession] = useState(0);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
-  );
+  const {
+    visibility: columnVisibility,
+    setVisibility: setColumnVisibility,
+    isColumnVisible,
+    visibleColumnCount,
+  } = useColumnVisibility(columns, 'admin.purchase-orders.columns');
 
   const { data: editingPo } = useGetPurchaseOrder(editingId);
   const dialogKeyBase = editingId
@@ -75,17 +111,6 @@ export function usePurchaseOrdersPage() {
   const currencies = currenciesData ?? [];
   const totalCount = data?.totalCount ?? 0;
   const totalPages = data?.totalPages ?? Math.ceil((totalCount || 0) / pageSize);
-
-  const isColumnVisible = (id: string) => {
-    const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
-    return columnVisibility[id] !== false;
-  };
-
-  const visibleColumnCount = columns.reduce(
-    (count, column) => count + (isColumnVisible(column.id) ? 1 : 0),
-    0,
-  );
 
   const openConfirm = (po: PurchaseOrder, action: ConfirmAction) => {
     setPoToConfirm({ po, action });
@@ -230,6 +255,21 @@ export function usePurchaseOrdersPage() {
       setSearch(value);
       setPage(1);
     },
+    filters,
+    onFiltersChange: (
+      nextFilters: Record<string, string | number | boolean | string[] | undefined>,
+    ) => {
+      setFilters(nextFilters);
+      setPage(1);
+    },
+    vendorOptions: (filterOptionsData?.vendors ?? []).map(vendor => ({
+      label: vendor.name,
+      value: String(vendor.id),
+    })),
+    paymentMethodOptions: (paymentMethodsData?.items ?? []).map(method => ({
+      label: method.name,
+      value: String(method.id),
+    })),
     columnVisibility,
     onToggleColumn: (columnId: string, visible: boolean) =>
       setColumnVisibility(prev => ({ ...prev, [columnId]: visible })),
@@ -245,6 +285,16 @@ export function usePurchaseOrdersPage() {
     decimals,
     formatDateTime,
     getActionItems,
+    sortBy,
+    sortDir,
+    onSortChange: (
+      nextSortBy?: string | undefined,
+      nextSortDir?: SortDirection | undefined,
+    ) => {
+      setSortBy(nextSortBy as typeof sortBy);
+      setSortDir(nextSortDir);
+      setPage(1);
+    },
     page,
     pageSize,
     totalCount,

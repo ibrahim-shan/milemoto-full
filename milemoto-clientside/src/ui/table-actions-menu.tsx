@@ -52,6 +52,8 @@ export function TableActionsMenu({
           size="icon"
           className={cn('h-8 w-8', triggerClassName)}
           justify="center"
+          aria-label={triggerLabel}
+          title={triggerLabel}
           onClick={onTriggerClick}
         >
           <span className="sr-only">{triggerLabel}</span>

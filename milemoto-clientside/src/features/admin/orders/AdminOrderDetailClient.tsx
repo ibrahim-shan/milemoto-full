@@ -3,13 +3,22 @@
 import { useEffect, useState } from 'react';
 
 import { AdminOrderStatusBadge, formatAdminOrderStatus } from './order-status';
+import { toast } from 'sonner';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { OrderTaxLinesBreakdown } from '@/features/orders/OrderTaxLinesBreakdown';
-import { fetchAdminOrderById } from '@/lib/admin-orders';
+import {
+  cancelAdminOrder,
+  confirmAdminOrder,
+  deliverAdminOrder,
+  fetchAdminOrderById,
+  processAdminOrder,
+  shipAdminOrder,
+} from '@/lib/admin-orders';
 import type { AdminOrderDetailResponse } from '@/types';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
+import { OrderTracking } from '@/ui/order-tracking';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 
 function formatMoney(amount: number, currency: string) {
@@ -39,10 +48,10 @@ export function AdminOrderDetailClient({ orderId }: { orderId: number }) {
   const [order, setOrder] = useState<AdminOrderDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [transitionLoading, setTransitionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting request UI state before starting fetch
     setLoading(true);
     setError(null);
 
@@ -61,6 +70,31 @@ export function AdminOrderDetailClient({ orderId }: { orderId: number }) {
       cancelled = true;
     };
   }, [orderId]);
+
+  const handleTransition = async (
+    action: 'confirm' | 'process' | 'ship' | 'deliver' | 'cancel',
+  ) => {
+    if (!order) return;
+    try {
+      setTransitionLoading(action);
+      const updated =
+        action === 'confirm'
+          ? await confirmAdminOrder(order.id)
+          : action === 'process'
+            ? await processAdminOrder(order.id)
+            : action === 'ship'
+              ? await shipAdminOrder(order.id)
+              : action === 'deliver'
+                ? await deliverAdminOrder(order.id)
+                : await cancelAdminOrder(order.id);
+      setOrder(updated);
+      toast.success('Order status updated');
+    } catch (err) {
+      toast.error((err as { message?: string })?.message || 'Failed to update order status');
+    } finally {
+      setTransitionLoading(null);
+    }
+  };
 
   return (
     <PermissionGuard requiredPermission="orders.read">
@@ -85,7 +119,11 @@ export function AdminOrderDetailClient({ orderId }: { orderId: number }) {
             ) : error || !order ? (
               <p className="text-sm text-red-600">{error || 'Order not found'}</p>
             ) : (
-              <AdminOrderDetailContent order={order} />
+              <AdminOrderDetailContent
+                order={order}
+                transitionLoading={transitionLoading}
+                onTransition={handleTransition}
+              />
             )}
           </CardContent>
         </Card>
@@ -94,16 +132,92 @@ export function AdminOrderDetailClient({ orderId }: { orderId: number }) {
   );
 }
 
-function AdminOrderDetailContent({ order }: { order: AdminOrderDetailResponse }) {
+function getAllowedActions(
+  status: string,
+): Array<'confirm' | 'process' | 'ship' | 'deliver' | 'cancel'> {
+  switch (status) {
+    case 'pending_confirmation':
+      return ['confirm', 'cancel'];
+    case 'confirmed':
+      return ['process', 'cancel'];
+    case 'processing':
+      return ['ship', 'cancel'];
+    case 'shipped':
+      return ['deliver'];
+    default:
+      return [];
+  }
+}
+
+function actionLabel(action: 'confirm' | 'process' | 'ship' | 'deliver' | 'cancel') {
+  switch (action) {
+    case 'confirm':
+      return 'Confirm Order';
+    case 'process':
+      return 'Mark Processing';
+    case 'ship':
+      return 'Mark Shipped';
+    case 'deliver':
+      return 'Mark Delivered';
+    case 'cancel':
+      return 'Cancel Order';
+  }
+}
+
+function AdminOrderDetailContent({
+  order,
+  transitionLoading,
+  onTransition,
+}: {
+  order: AdminOrderDetailResponse;
+  transitionLoading: string | null;
+  onTransition: (action: 'confirm' | 'process' | 'ship' | 'deliver' | 'cancel') => void;
+}) {
   const shippingEmail = cleanOptionalText(order.shippingAddress.email);
   const shippingLine2 = cleanOptionalText(order.shippingAddress.addressLine2);
   const shippingPostal = cleanOptionalText(order.shippingAddress.postalCode);
   const billingEmail = cleanOptionalText(order.billingAddress.email);
   const billingLine2 = cleanOptionalText(order.billingAddress.addressLine2);
   const billingPostal = cleanOptionalText(order.billingAddress.postalCode);
+  const allowedActions = getAllowedActions(order.status);
+  const primaryAction = allowedActions.find(action => action !== 'cancel') ?? null;
+  const canCancel = allowedActions.includes('cancel');
 
   return (
     <div className="space-y-6">
+      {allowedActions.length > 0 ? (
+        <div className="bg-muted/20 rounded-md border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-muted-foreground text-xs uppercase">Order Actions</div>
+              <div className="text-sm font-medium">Manage next workflow step</div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {primaryAction ? (
+                <Button
+                  size="sm"
+                  onClick={() => onTransition(primaryAction)}
+                  disabled={transitionLoading !== null}
+                >
+                  {transitionLoading === primaryAction ? 'Updating...' : actionLabel(primaryAction)}
+                </Button>
+              ) : null}
+              {canCancel ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => onTransition('cancel')}
+                  disabled={transitionLoading !== null}
+                >
+                  {transitionLoading === 'cancel' ? 'Cancelling...' : actionLabel('cancel')}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Info
           label="Order Number"
@@ -184,29 +298,13 @@ function AdminOrderDetailContent({ order }: { order: AdminOrderDetailResponse })
             <div className="text-muted-foreground text-xs font-semibold uppercase">
               Status History
             </div>
-            <div className="rounded-md border">
-              {order.statusHistory.length === 0 ? (
-                <div className="text-muted-foreground p-4 text-sm">No status updates yet.</div>
-              ) : (
-                <div className="divide-y">
-                  {order.statusHistory.map(entry => (
-                    <div
-                      key={entry.id}
-                      className="flex flex-wrap items-center justify-between gap-2 p-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium">{formatAdminOrderStatus(entry.toStatus)}</div>
-                        {entry.reason ? (
-                          <div className="text-muted-foreground text-sm">{entry.reason}</div>
-                        ) : null}
-                      </div>
-                      <div className="text-muted-foreground text-xs">
-                        {formatDateTime(entry.createdAt)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="rounded-md border p-3">
+              <OrderTracking
+                entries={order.statusHistory}
+                currentStatus={order.status}
+                formatStatus={formatAdminOrderStatus}
+                formatDate={formatDateTime}
+              />
             </div>
           </section>
         </div>

@@ -5,6 +5,7 @@ import {
   listStockLevels,
   listStockMovements,
   getStockSummary,
+  getStockFilterOptions,
   createStockAdjustment,
   createStockTransfer,
 } from '../../services/stock.service.js';
@@ -33,6 +34,15 @@ router.get(
   requirePermission('stock.read'),
   asyncHandler(async (_req, res) => {
     const result = await getStockSummary();
+    res.json(result);
+  })
+);
+
+router.get(
+  '/filter-options',
+  requirePermission('stock.read'),
+  asyncHandler(async (_req, res) => {
+    const result = await getStockFilterOptions();
     res.json(result);
   })
 );

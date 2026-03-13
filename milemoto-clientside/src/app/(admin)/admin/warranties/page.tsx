@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 
-import { Edit, MoreHorizontal, Plus, Search, Shield, Trash } from 'lucide-react';
+import { Edit, MoreHorizontal, Plus, Shield, Trash } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { WarrantyDialog } from '@/features/admin/warranties/warranty-dialog';
+import { WarrantyFilters } from '@/features/admin/warranties/warranty-filters';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useDeleteWarranty, useGetWarranties, type Warranty } from '@/hooks/useWarrantyQueries';
 import {
   AlertDialog,
@@ -28,32 +30,40 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { FilterConfig, GenericFilter } from '@/ui/generic-filter';
-import { Input } from '@/ui/input';
 import { StatusBadge } from '@/ui/status-badge';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+const WARRANTY_COLUMNS = [
+  { id: 'name', label: 'Name', alwaysVisible: true },
+  { id: 'description', label: 'Description' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function WarrantiesPage() {
-  const columns = [
-    { id: 'name', label: 'Name' },
-    { id: 'description', label: 'Description' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = WARRANTY_COLUMNS;
 
   // State
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<Record<string, string | number | string[] | undefined>>({
+  const [sortBy, setSortBy] = useState<
+    'name' | 'description' | 'status' | 'createdAt' | 'updatedAt' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
     status: '',
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWarranty, setEditingWarranty] = useState<Warranty | null>(null);
   const [warrantyToDelete, setWarrantyToDelete] = useState<Warranty | null>(null);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.warranties.columns',
   );
 
   // Queries
@@ -61,7 +71,10 @@ export default function WarrantiesPage() {
     page,
     limit: pageSize,
     search,
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
     ...(filters.status ? { status: filters.status as 'active' | 'inactive' } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
   const deleteMutation = useDeleteWarranty();
@@ -90,7 +103,7 @@ export default function WarrantiesPage() {
 
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
 
@@ -101,18 +114,11 @@ export default function WarrantiesPage() {
 
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
-
-  const filterConfig: FilterConfig[] = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-      ],
-    },
-  ];
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   return (
     <PermissionGuard requiredPermission="warranties.read">
@@ -123,27 +129,17 @@ export default function WarrantiesPage() {
         <CardContent>
           {/* Toolbar area */}
           <div className="mb-6">
-            <GenericFilter
-              config={filterConfig}
+            <WarrantyFilters
               filters={filters}
               onFilterChange={nextFilters => {
                 setFilters(nextFilters);
                 setPage(1);
               }}
-              search={
-                <div className="relative max-w-sm flex-1">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-                  <Input
-                    placeholder="Search warranties..."
-                    className="pl-9"
-                    value={search}
-                    onChange={e => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                  />
-                </div>
-              }
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
               actions={
                 <div className="flex items-center gap-2">
                   <ColumnVisibilityMenu
@@ -170,9 +166,39 @@ export default function WarrantiesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('name') && <TableHead>Name</TableHead>}
-                {isColumnVisible('description') && <TableHead>Description</TableHead>}
-                {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                {isColumnVisible('name') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Name"
+                      columnKey="name"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('description') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Description"
+                      columnKey="description"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('status') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
                 {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -342,3 +368,5 @@ export default function WarrantiesPage() {
     </PermissionGuard>
   );
 }
+
+

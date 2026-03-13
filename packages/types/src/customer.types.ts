@@ -19,6 +19,7 @@ export interface CustomerResponse {
 }
 
 export const CustomerListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: CustomerStatus.optional(),
   ordersMin: z.coerce.number().int().optional(),
   ordersMax: z.coerce.number().int().optional(),
@@ -26,6 +27,8 @@ export const CustomerListQuery = PaginationSchema.extend({
   spentMax: z.coerce.number().optional(),
   dateStart: OptionalDateOnlyStringSchema,
   dateEnd: OptionalDateOnlyStringSchema,
+  sortBy: z.enum(["fullName", "email", "createdAt", "totalOrders", "totalSpent", "status"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type CustomerListQueryDto = z.infer<typeof CustomerListQuery>;

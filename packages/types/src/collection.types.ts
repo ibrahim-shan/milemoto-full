@@ -31,9 +31,12 @@ export const UpdateCollectionSchema = CreateCollectionSchema.partial().extend({
 });
 
 export const CollectionListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
   type: CollectionTypeSchema.optional(),
   search: TrimmedStringSchema.optional(),
+  sortBy: z.enum(["name", "type", "matchType", "status", "createdAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type CollectionRule = z.infer<typeof CollectionRuleSchema>;

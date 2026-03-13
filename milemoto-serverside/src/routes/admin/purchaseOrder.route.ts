@@ -5,6 +5,7 @@ import { httpError } from '../../utils/error.js';
 import {
   listPurchaseOrders,
   getPurchaseOrder,
+  getPurchaseOrderFilterOptions,
   createPurchaseOrder,
   updatePurchaseOrder,
   submitPurchaseOrder,
@@ -21,6 +22,15 @@ import {
 import { asyncHandler } from '../../utils/asyncHandler.js';
 
 const router = Router();
+
+router.get(
+  '/filter-options',
+  requirePermission('purchase_orders.read'),
+  asyncHandler(async (_req, res) => {
+    const result = await getPurchaseOrderFilterOptions();
+    res.json(result);
+  })
+);
 
 router.get(
   '/',

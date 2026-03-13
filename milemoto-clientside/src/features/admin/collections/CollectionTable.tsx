@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
 import { StatusBadge } from '@/ui/status-badge';
+import { SortDirection, SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
@@ -32,6 +33,9 @@ type Props = {
   onRetry?: () => void;
   isColumnVisible: (columnId: string) => boolean;
   visibleColumnCount: number;
+  sortBy: 'name' | 'type' | 'matchType' | 'status' | 'createdAt' | undefined;
+  sortDir: SortDirection | undefined;
+  onSortChange: (nextSortBy?: string, nextSortDir?: SortDirection) => void;
 };
 
 export function CollectionTable({
@@ -50,17 +54,60 @@ export function CollectionTable({
   onRetry,
   isColumnVisible,
   visibleColumnCount,
+  sortBy,
+  sortDir,
+  onSortChange,
 }: Props) {
   return (
     <>
       <Table>
         <TableHeader>
           <TableRow>
-            {isColumnVisible('name') && <TableHead>Name</TableHead>}
-            {isColumnVisible('type') && <TableHead>Type</TableHead>}
-            {isColumnVisible('match') && <TableHead>Match</TableHead>}
+            {isColumnVisible('name') && (
+              <TableHead>
+                <SortableTableHead
+                  label="Name"
+                  columnKey="name"
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onSortChange={onSortChange}
+                />
+              </TableHead>
+            )}
+            {isColumnVisible('type') && (
+              <TableHead>
+                <SortableTableHead
+                  label="Type"
+                  columnKey="type"
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onSortChange={onSortChange}
+                />
+              </TableHead>
+            )}
+            {isColumnVisible('match') && (
+              <TableHead>
+                <SortableTableHead
+                  label="Match"
+                  columnKey="matchType"
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onSortChange={onSortChange}
+                />
+              </TableHead>
+            )}
             {isColumnVisible('rules') && <TableHead>Rules</TableHead>}
-            {isColumnVisible('status') && <TableHead>Status</TableHead>}
+            {isColumnVisible('status') && (
+              <TableHead>
+                <SortableTableHead
+                  label="Status"
+                  columnKey="status"
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onSortChange={onSortChange}
+                />
+              </TableHead>
+            )}
             {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
           </TableRow>
         </TableHeader>
@@ -191,7 +238,7 @@ export function CollectionTable({
         </TableBody>
       </Table>
 
-      {data && totalCount > 0 && (
+      {data && totalPages > 1 && (
         <div className="flex items-center justify-between pt-4">
           <div className="text-muted-foreground text-sm">
             Page {page} of {totalPages} (Total {totalCount} items)

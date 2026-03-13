@@ -16,6 +16,7 @@ INSERT INTO permissions (slug, description, resourceGroup) VALUES
   ('collections.read', 'View collections', 'Catalog'),
   ('collections.manage', 'Manage collections', 'Catalog'),
   ('reviews.read', 'View reviews', 'Catalog'),
+  ('reviews.manage', 'Manage reviews', 'Catalog'),
   ('grades.read', 'View grades', 'Catalog'),
   ('grades.manage', 'Manage grades', 'Catalog'),
   ('warranties.read', 'View warranties', 'Catalog'),

@@ -11,6 +11,7 @@ export async function getWishlist(userId: number): Promise<WishlistResponse> {
       addedAt: wishlistitems.addedAt,
       productName: products.name,
       productSlug: products.slug,
+      productStatus: products.status,
     })
     .from(wishlistitems)
     .innerJoin(products, eq(products.id, wishlistitems.productId))
@@ -19,7 +20,7 @@ export async function getWishlist(userId: number): Promise<WishlistResponse> {
 
   if (rows.length === 0) return { items: [], itemCount: 0 };
 
-  const productIds = rows.map(r => Number(r.productId));
+  const productIds = rows.map((r) => Number(r.productId));
 
   const [imageRows, variantPriceRows] = await Promise.all([
     db
@@ -79,21 +80,37 @@ export async function getWishlist(userId: number): Promise<WishlistResponse> {
   }
 
   const priceMap = new Map<number, number>();
+  const hasActiveVariantSet = new Set<number>();
   for (const row of variantPriceRows) {
     const pid = Number(row.productId);
+    hasActiveVariantSet.add(pid);
     if (!priceMap.has(pid)) priceMap.set(pid, Number(row.price));
   }
 
   const items: WishlistItemResponse[] = rows
-    .map(row => ({
-      id: Number(row.id),
-      productId: Number(row.productId),
-      productSlug: row.productSlug,
-      productName: row.productName,
-      imageSrc: imageMap.get(Number(row.productId)) ?? null,
-      price: priceMap.get(Number(row.productId)) ?? 0,
-      addedAt: row.addedAt.toISOString(),
-    }))
+    .map((row) => {
+      const productId = Number(row.productId);
+      const isActive = row.productStatus === 'active';
+      const hasActiveVariant = hasActiveVariantSet.has(productId);
+      const unavailableReason: 'inactive' | 'unavailable' | null = !isActive
+        ? 'inactive'
+        : !hasActiveVariant
+          ? 'unavailable'
+          : null;
+
+      return {
+        id: Number(row.id),
+        productId,
+        productSlug: row.productSlug,
+        productName: row.productName,
+        imageSrc: imageMap.get(productId) ?? null,
+        price: priceMap.get(productId) ?? 0,
+        isActive,
+        hasActiveVariant,
+        unavailableReason,
+        addedAt: row.addedAt.toISOString(),
+      };
+    })
     .reverse(); // newest first
 
   return { items, itemCount: items.length };

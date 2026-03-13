@@ -1,4 +1,4 @@
-import { and, desc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, like, lte, or, sql } from 'drizzle-orm';
 import { orderitems, orders, orderstatushistory, ordertaxlines } from '@milemoto/types';
 import type {
   AdminOrderDetailResponse,
@@ -12,6 +12,7 @@ import { db } from '../../db/drizzle.js';
 import { httpError } from '../../utils/error.js';
 
 type OrderStatusValue = (typeof orders)['$inferSelect']['status'];
+type OrderPaymentStatusValue = (typeof orders)['$inferSelect']['paymentStatus'];
 
 export async function listCustomerOrders(
   userId: number,
@@ -38,6 +39,14 @@ export async function listCustomerOrders(
         currency: orders.currency,
         placedAt: orders.placedAt,
         createdAt: orders.createdAt,
+        imageSrc: sql<string | null>`(
+          SELECT ${orderitems.imageSrc}
+          FROM ${orderitems}
+          WHERE ${orderitems.orderId} = ${orders.id}
+            AND ${orderitems.imageSrc} IS NOT NULL
+          ORDER BY ${orderitems.id} ASC
+          LIMIT 1
+        )`,
         itemCount: sql<number>`(
           SELECT COALESCE(SUM(${orderitems.quantity}), 0)
           FROM ${orderitems}
@@ -65,6 +74,7 @@ export async function listCustomerOrders(
       status: row.status,
       paymentStatus: row.paymentStatus,
       paymentMethod: row.paymentMethod,
+      imageSrc: row.imageSrc ?? null,
       itemCount: Number(row.itemCount ?? 0),
       grandTotal: Number(row.grandTotal),
       currency: row.currency,
@@ -183,17 +193,58 @@ export async function listAdminOrders(
   const limit = query.limit ?? 10;
   const offset = (page - 1) * limit;
   const search = query.search?.trim();
+  const filterMode = query.filterMode ?? 'all';
+  const sortBy = query.sortBy ?? 'createdAt';
+  const sortDir = query.sortDir ?? 'desc';
 
-  const where = and(
+  const searchFilter = search
+    ? or(
+        like(orders.orderNumber, `%${search}%`),
+        like(orders.shippingFullName, `%${search}%`),
+        like(orders.shippingPhone, `%${search}%`)
+      )
+    : undefined;
+  const optionalFilters = [
     query.status ? eq(orders.status, query.status as OrderStatusValue) : undefined,
-    search
-      ? or(
-          like(orders.orderNumber, `%${search}%`),
-          like(orders.shippingFullName, `%${search}%`),
-          like(orders.shippingPhone, `%${search}%`)
-        )
-      : undefined
-  );
+    query.paymentStatus
+      ? eq(orders.paymentStatus, query.paymentStatus as OrderPaymentStatusValue)
+      : undefined,
+    query.paymentMethod ? eq(orders.paymentMethod, query.paymentMethod) : undefined,
+    query.dateFrom ? gte(orders.placedAt, new Date(query.dateFrom)) : undefined,
+    query.dateTo ? lte(orders.placedAt, new Date(query.dateTo)) : undefined,
+  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
+  const structuredFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, structuredFilter);
+  const itemCountExpr = sql<number>`(
+    SELECT COALESCE(SUM(${orderitems.quantity}), 0)
+    FROM ${orderitems}
+    WHERE ${orderitems.orderId} = ${orders.id}
+  )`;
+  const sortColumn =
+    sortBy === 'orderNumber'
+      ? orders.orderNumber
+      : sortBy === 'customerName'
+        ? orders.shippingFullName
+        : sortBy === 'status'
+          ? orders.status
+          : sortBy === 'paymentStatus'
+            ? orders.paymentStatus
+            : sortBy === 'paymentMethod'
+              ? orders.paymentMethod
+              : sortBy === 'itemCount'
+                ? itemCountExpr
+                : sortBy === 'placedAt'
+                  ? orders.placedAt
+                  : sortBy === 'grandTotal'
+                    ? orders.grandTotal
+                    : orders.createdAt;
+  const orderByClause = sortDir === 'asc' ? asc(sortColumn) : desc(sortColumn);
+  const orderById = sortDir === 'asc' ? asc(orders.id) : desc(orders.id);
 
   const [rows, countRows] = await Promise.all([
     db
@@ -210,15 +261,11 @@ export async function listAdminOrders(
         createdAt: orders.createdAt,
         customerName: orders.shippingFullName,
         customerPhone: orders.shippingPhone,
-        itemCount: sql<number>`(
-          SELECT COALESCE(SUM(${orderitems.quantity}), 0)
-          FROM ${orderitems}
-          WHERE ${orderitems.orderId} = ${orders.id}
-        )`,
+        itemCount: itemCountExpr,
       })
       .from(orders)
       .where(where)
-      .orderBy(desc(orders.createdAt))
+      .orderBy(orderByClause, orderById)
       .limit(limit)
       .offset(offset),
     db
@@ -251,6 +298,19 @@ export async function listAdminOrders(
     page,
     limit,
     totalPages,
+  };
+}
+
+export async function getAdminOrderFilterOptions() {
+  const paymentMethodRows = await db
+    .selectDistinct({ paymentMethod: orders.paymentMethod })
+    .from(orders)
+    .orderBy(asc(orders.paymentMethod));
+
+  return {
+    paymentMethods: paymentMethodRows
+      .map(row => row.paymentMethod)
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
   };
 }
 

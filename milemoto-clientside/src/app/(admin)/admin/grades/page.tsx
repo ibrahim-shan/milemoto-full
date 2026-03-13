@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 
-import { ClipboardCheck, Edit, MoreHorizontal, Plus, Search, Trash } from 'lucide-react';
+import { ClipboardCheck, Edit, MoreHorizontal, Plus, Trash } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
+import { GradeFilters } from '@/features/admin/grades/grade-filters';
 import { GradeDialog } from '@/features/admin/grades/grade-dialog';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Grade, useDeleteGrade, useGetGrades } from '@/hooks/useGradeQueries';
 import {
   AlertDialog,
@@ -28,33 +30,40 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { FilterConfig, GenericFilter } from '@/ui/generic-filter';
-import { Input } from '@/ui/input';
 import { StatusBadge } from '@/ui/status-badge';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+const GRADE_COLUMNS = [
+  { id: 'name', label: 'Name', alwaysVisible: true },
+  { id: 'description', label: 'Description' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function GradesPage() {
-  const columns = [
-    { id: 'name', label: 'Name' },
-    { id: 'slug', label: 'Slug' },
-    { id: 'description', label: 'Description' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = GRADE_COLUMNS;
 
   // State
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<Record<string, string | number | string[] | undefined>>({
+  const [sortBy, setSortBy] = useState<
+    'name' | 'description' | 'status' | 'createdAt' | 'updatedAt' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
     status: '',
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
   const [gradeToDelete, setGradeToDelete] = useState<Grade | null>(null);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.grades.columns',
   );
 
   // Queries
@@ -62,7 +71,10 @@ export default function GradesPage() {
     page,
     limit: pageSize,
     search,
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
     ...(filters.status ? { status: filters.status as 'active' | 'inactive' } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
   const deleteMutation = useDeleteGrade();
@@ -91,7 +103,7 @@ export default function GradesPage() {
 
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
 
@@ -102,18 +114,11 @@ export default function GradesPage() {
 
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
-
-  const filterConfig: FilterConfig[] = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-      ],
-    },
-  ];
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   return (
     <PermissionGuard requiredPermission="grades.read">
@@ -124,27 +129,17 @@ export default function GradesPage() {
         <CardContent>
           {/* Toolbar area */}
           <div className="mb-6">
-            <GenericFilter
-              config={filterConfig}
+            <GradeFilters
               filters={filters}
               onFilterChange={nextFilters => {
                 setFilters(nextFilters);
                 setPage(1);
               }}
-              search={
-                <div className="relative max-w-sm flex-1">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-                  <Input
-                    placeholder="Search grades..."
-                    className="pl-9"
-                    value={search}
-                    onChange={e => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                  />
-                </div>
-              }
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
               actions={
                 <div className="flex items-center gap-2">
                   <ColumnVisibilityMenu
@@ -171,10 +166,39 @@ export default function GradesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('name') && <TableHead>Name</TableHead>}
-                {isColumnVisible('slug') && <TableHead>Slug</TableHead>}
-                {isColumnVisible('description') && <TableHead>Description</TableHead>}
-                {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                {isColumnVisible('name') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Name"
+                      columnKey="name"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('description') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Description"
+                      columnKey="description"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('status') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
                 {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -243,11 +267,6 @@ export default function GradesPage() {
                           <ClipboardCheck className="text-muted-foreground h-4 w-4" />
                           <div>{grade.name}</div>
                         </div>
-                      </TableCell>
-                    )}
-                    {isColumnVisible('slug') && (
-                      <TableCell>
-                        <code className="bg-muted rounded px-2 py-1 text-xs">{grade.slug}</code>
                       </TableCell>
                     )}
                     {isColumnVisible('description') && (
@@ -353,3 +372,5 @@ export default function GradesPage() {
     </PermissionGuard>
   );
 }
+
+

@@ -7,6 +7,7 @@ import { Edit, Eye, Layers, Package, Star, Trash } from 'lucide-react';
 
 import { useGetBrands } from '@/hooks/useBrandQueries';
 import { useGetAllCategories } from '@/hooks/useCategoryQueries';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useGetGrades } from '@/hooks/useGradeQueries';
 import {
   useCreateProduct,
@@ -16,8 +17,10 @@ import {
   type Product,
 } from '@/hooks/useProductQueries';
 import { useGetUnitGroups } from '@/hooks/useUnitQueries';
+import { useGetVendors } from '@/hooks/useVendorQueries';
 import { useGetWarranties } from '@/hooks/useWarrantyQueries';
 import type { FilterConfig } from '@/ui/generic-filter';
+import { SortDirection } from '@/ui/sortable-table-head';
 import type { StatItem } from '@/ui/stats-cards';
 import type { TableActionItem } from '@/ui/table-actions-menu';
 
@@ -33,17 +36,35 @@ export function useProductsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<
+    | 'id'
+    | 'name'
+    | 'brand'
+    | 'category'
+    | 'subCategory'
+    | 'grade'
+    | 'warranty'
+    | 'featured'
+    | 'status'
+    | 'createdAt'
+    | 'updatedAt'
+    | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
   const [filters, setFilters] = useState<ProductFilters>(() => createDefaultProductFilters());
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => ({
-    ...Object.fromEntries(columns.map(column => [column.id, true])),
-    ...DEFAULT_PRODUCT_COLUMN_VISIBILITY,
-  }));
+  const {
+    visibility: columnVisibility,
+    setVisibility: setColumnVisibility,
+    isColumnVisible,
+    visibleColumnCount,
+  } = useColumnVisibility(columns, 'admin.products.columns', DEFAULT_PRODUCT_COLUMN_VISIBILITY);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   const { data: brands } = useGetBrands({ page: 1, limit: 100 });
+  const { data: vendors } = useGetVendors({ page: 1, limit: 100 });
   const { data: categories } = useGetAllCategories(true);
   const { data: grades } = useGetGrades({ page: 1, limit: 100 });
   const { data: warranties } = useGetWarranties({ page: 1, limit: 100 });
@@ -83,10 +104,25 @@ export function useProductsPage() {
   const filterConfig = useMemo<FilterConfig[]>(
     () => [
       {
+        key: 'filterMode',
+        label: 'Match',
+        type: 'select',
+        options: [
+          { label: 'All selected filters', value: 'all' },
+          { label: 'Any selected filter', value: 'any' },
+        ],
+      },
+      {
         key: 'brandId',
         label: 'Brand',
         type: 'multiselect',
         options: brands?.items.map(b => ({ label: b.name, value: b.id.toString() })) || [],
+      },
+      {
+        key: 'vendorId',
+        label: 'Vendor',
+        type: 'multiselect',
+        options: vendors?.items.map(v => ({ label: v.name, value: v.id.toString() })) || [],
       },
       {
         key: 'categoryId',
@@ -136,14 +172,30 @@ export function useProductsPage() {
         type: 'multiselect',
         options: specOptions,
       },
+      {
+        key: 'sku',
+        label: 'SKU',
+        type: 'text',
+        placeholder: 'Enter SKU...',
+      },
+      {
+        key: 'priceRange',
+        label: 'Price Range',
+        type: 'range',
+        minKey: 'priceMin',
+        maxKey: 'priceMax',
+      },
     ],
-    [brands, rootCategories, filteredSubCategories, grades, warranties, specOptions],
+    [brands, vendors, rootCategories, filteredSubCategories, grades, warranties, specOptions],
   );
 
   const { data, isLoading, isError, refetch } = useGetProducts({
     page,
     limit: pageSize,
     search,
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
     ...filters,
     ...(filters.isFeatured === ''
       ? { isFeatured: undefined }
@@ -200,15 +252,6 @@ export function useProductsPage() {
 
   const totalCount = data?.total || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
-  const isColumnVisible = (id: string) => {
-    const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
-    return columnVisibility[id] !== false;
-  };
-  const visibleColumnCount = columns.reduce(
-    (count, column) => count + (isColumnVisible(column.id) ? 1 : 0),
-    0,
-  );
 
   const statItems = useMemo<StatItem[]>(
     () => [
@@ -283,6 +326,13 @@ export function useProductsPage() {
     expandedRows,
     onToggleRow: toggleRowExpansion,
     getActionItems,
+    sortBy,
+    sortDir,
+    onSortChange: (nextSortBy?: string, nextSortDir?: SortDirection) => {
+      setSortBy(nextSortBy as typeof sortBy);
+      setSortDir(nextSortDir);
+      setPage(1);
+    },
     stats: statItems,
     page,
     pageSize,

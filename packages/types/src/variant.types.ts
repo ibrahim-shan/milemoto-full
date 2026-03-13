@@ -36,7 +36,10 @@ export type CreateVariant = z.infer<typeof CreateVariantSchema>;
 export type UpdateVariant = z.infer<typeof UpdateVariantSchema>;
 
 export const VariantListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
+  sortBy: z.enum(["name", "status", "createdAt", "updatedAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type VariantListQueryDto = z.infer<typeof VariantListQuery>;

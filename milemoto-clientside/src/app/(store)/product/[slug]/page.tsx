@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { ProductClient } from '@/features/product/components/ProductClient';
 import { serverFetchProductBySlug } from '@/lib/storefront';
@@ -42,8 +42,15 @@ export default async function ProductPage({ params }: Props) {
   try {
     // Product detail includes live variant availability, so avoid ISR cache here.
     product = await serverFetchProductBySlug(slug, 0);
-  } catch {
-    notFound();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('[serverGet] 410')) {
+      redirect('/shop');
+    }
+    if (message.includes('[serverGet] 404')) {
+      notFound();
+    }
+    throw error;
   }
 
   return <ProductClient product={product} />;

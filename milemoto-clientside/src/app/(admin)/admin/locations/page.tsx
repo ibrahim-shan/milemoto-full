@@ -2,19 +2,14 @@
 
 import { useState } from 'react';
 
-import {
-  Edit,
-  MapPin,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Trash,
-} from 'lucide-react';
+import { Edit, MapPin, MoreHorizontal, Plus, Trash } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { LocationDialog } from '@/features/admin/locations/location-dialog';
+import { LocationsFilters } from '@/features/admin/locations/locations-filters';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import {
   StockLocation,
   useDeleteStockLocation,
@@ -39,29 +34,44 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { Input } from '@/ui/input';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { StatusBadge } from '@/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+const STOCK_LOCATION_COLUMNS = [
+  { id: 'name', label: 'Location Name', alwaysVisible: true },
+  { id: 'type', label: 'Type' },
+  { id: 'description', label: 'Description' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function LocationsPage() {
-  const columns = [
-    { id: 'name', label: 'Location Name' },
-    { id: 'type', label: 'Type' },
-    { id: 'description', label: 'Description' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = STOCK_LOCATION_COLUMNS;
 
   // State
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<
+    'name' | 'type' | 'status' | 'description' | 'createdAt' | 'updatedAt' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<
+    Record<string, string | number | boolean | string[] | undefined>
+  >({
+    filterMode: 'all',
+    status: '',
+    type: '',
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StockLocation | null>(null);
   const [locationToDelete, setLocationToDelete] = useState<StockLocation | null>(null);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.stock-locations.columns',
   );
 
   // Queries
@@ -69,6 +79,13 @@ export default function LocationsPage() {
     page,
     limit: pageSize,
     search,
+    ...(filters.status ? { status: filters.status as 'active' | 'inactive' } : {}),
+    ...(filters.type
+      ? { type: filters.type as 'Warehouse' | 'Store' | 'Office' | 'Factory' | 'Others' }
+      : {}),
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
   const deleteMutation = useDeleteStockLocation();
@@ -97,7 +114,7 @@ export default function LocationsPage() {
 
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
 
@@ -106,6 +123,12 @@ export default function LocationsPage() {
     0,
   );
 
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
+
   return (
     <PermissionGuard requiredPermission="locations.read">
       <Card>
@@ -113,49 +136,88 @@ export default function LocationsPage() {
           <CardTitle>Stock Locations</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Toolbar area */}
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div className="relative max-w-sm flex-1">
-              <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-              <Input
-                placeholder="Search locations..."
-                aria-label="Search stock locations"
-                className="pl-9"
-                value={search}
-                onChange={e => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <ColumnVisibilityMenu
-                columns={columns}
-                visibility={columnVisibility}
-                onToggle={(columnId, visible) =>
-                  setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
-                }
-              />
-              <Button
-                variant="solid"
-                size="sm"
-                leftIcon={<Plus className="h-4 w-4" />}
-                onClick={handleOpenAdd}
-              >
-                Add Location
-              </Button>
-            </div>
+          <div className="mb-6">
+            <LocationsFilters
+              filters={filters}
+              onFilterChange={nextFilters => {
+                setFilters(nextFilters);
+                setPage(1);
+              }}
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
+              actions={
+                <div className="flex items-center gap-2">
+                  <ColumnVisibilityMenu
+                    columns={columns}
+                    visibility={columnVisibility}
+                    onToggle={(columnId, visible) =>
+                      setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
+                    }
+                  />
+                  <Button
+                    variant="solid"
+                    size="sm"
+                    leftIcon={<Plus className="h-4 w-4" />}
+                    onClick={handleOpenAdd}
+                  >
+                    Add Location
+                  </Button>
+                </div>
+              }
+            />
           </div>
 
           {/* Table */}
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('name') && <TableHead>Location Name</TableHead>}
-                {isColumnVisible('type') && <TableHead>Type</TableHead>}
-                {isColumnVisible('description') && <TableHead>Description</TableHead>}
-                {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                {isColumnVisible('name') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Location Name"
+                      columnKey="name"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('type') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Type"
+                      columnKey="type"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('description') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Description"
+                      columnKey="description"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('status') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
                 {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -334,3 +396,4 @@ export default function LocationsPage() {
     </PermissionGuard>
   );
 }
+

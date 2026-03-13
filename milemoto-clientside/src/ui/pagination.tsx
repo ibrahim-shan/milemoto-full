@@ -104,6 +104,7 @@ type PaginationPageSizeProps = {
   onValueChange: (value: number) => void;
   options?: number[];
   label?: string;
+  ariaLabel?: string;
   disabled?: boolean;
   className?: string;
 };
@@ -113,6 +114,7 @@ const PaginationPageSize = ({
   onValueChange,
   options = [10, 20, 50, 100],
   label = 'Rows per page',
+  ariaLabel,
   disabled = false,
   className,
 }: PaginationPageSizeProps) => (
@@ -123,7 +125,11 @@ const PaginationPageSize = ({
       onValueChange={next => onValueChange(Number(next))}
       disabled={disabled}
     >
-      <SelectTrigger className="w-19.5 h-9 px-2 text-sm">
+      <SelectTrigger
+        className="w-19.5 h-9 px-2 text-sm"
+        aria-label={ariaLabel ?? label}
+        title={ariaLabel ?? label}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

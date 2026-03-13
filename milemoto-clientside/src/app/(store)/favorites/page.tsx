@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import { FavoritesClient } from '@/features/wishlist/FavoritesClient';
 
 export const metadata: Metadata = {

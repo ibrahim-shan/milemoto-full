@@ -16,6 +16,9 @@ export type VendorListQuery = {
   search?: string;
   status?: 'active' | 'inactive';
   country?: string | string[];
+  filterMode?: 'all' | 'any';
+  sortBy?: 'name' | 'country' | 'status' | 'email' | 'createdAt' | 'updatedAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 type QueryOptions = {

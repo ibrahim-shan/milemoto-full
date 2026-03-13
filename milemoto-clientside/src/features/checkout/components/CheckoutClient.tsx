@@ -68,6 +68,17 @@ function hasMeaningfulAddress(value: Address): boolean {
   );
 }
 
+function getCouponErrorMessage(errors: string[]): string | null {
+  if (errors.includes('COUPON_EXPIRED')) return 'This coupon has expired.';
+  if (errors.includes('COUPON_USAGE_LIMIT_REACHED')) return 'Coupon usage limit reached.';
+  if (errors.includes('COUPON_MIN_SUBTOTAL_NOT_MET'))
+    return 'Your cart subtotal does not meet this coupon minimum.';
+  if (errors.includes('COUPON_NOT_STARTED')) return 'This coupon is not active yet.';
+  if (errors.includes('COUPON_INVALID'))
+    return 'Coupon code is invalid or not applicable to this cart.';
+  return null;
+}
+
 export default function CheckoutClient() {
   const router = useRouter();
   const { clear: clearLocalCart } = useCart();
@@ -113,7 +124,11 @@ export default function CheckoutClient() {
   const [quote, setQuote] = React.useState<CheckoutQuoteResponse | null>(null);
   const [loadingQuote, setLoadingQuote] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
+  const [applyingCoupon, setApplyingCoupon] = React.useState(false);
   const [authError, setAuthError] = React.useState<string | null>(null);
+  const [couponCode, setCouponCode] = React.useState('');
+  const [couponInput, setCouponInput] = React.useState('');
+  const [couponError, setCouponError] = React.useState<string | null>(null);
   const [shippingPrefillReady, setShippingPrefillReady] = React.useState(false);
   const shippingRef = React.useRef(shipping);
 
@@ -173,57 +188,71 @@ export default function CheckoutClient() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  const loadQuote = React.useCallback(async () => {
-    if (!isAuthenticated) return;
-    setLoadingQuote(true);
-    setAuthError(null);
-    try {
-      const currentShipping = shippingRef.current;
-      const quoteShippingAddress =
-        currentShipping.country.trim() ||
-        currentShipping.state.trim() ||
-        currentShipping.city.trim() ||
-        currentShipping.postalCode.trim()
-          ? {
-              ...(currentShipping.country.trim()
-                ? { country: currentShipping.country.trim() }
-                : {}),
-              ...(currentShipping.countryId
-                ? { countryId: Number(currentShipping.countryId) }
-                : {}),
-              ...(currentShipping.state.trim() ? { state: currentShipping.state.trim() } : {}),
-              ...(currentShipping.stateId ? { stateId: Number(currentShipping.stateId) } : {}),
-              ...(currentShipping.city.trim() ? { city: currentShipping.city.trim() } : {}),
-              ...(currentShipping.cityId ? { cityId: Number(currentShipping.cityId) } : {}),
-              ...(currentShipping.postalCode.trim()
-                ? { postalCode: currentShipping.postalCode.trim() }
-                : {}),
-            }
-          : undefined;
-      const data = await fetchCheckoutQuote({
-        paymentMethodCode: payment.method,
-        ...(quoteShippingAddress ? { shippingAddress: quoteShippingAddress } : {}),
-      });
-      setQuote(data);
-    } catch (err) {
-      const e = err as { message?: string; status?: number; code?: string };
-      const msg = (e?.message || '').toLowerCase();
-      const code = (e?.code || '').toLowerCase();
-      if (
-        e?.status === 401 ||
-        code === 'unauthorized' ||
-        code === 'norefresh' ||
-        msg.includes('auth')
-      ) {
-        setAuthError('Please sign in to continue checkout.');
-      } else {
-        toast.error(e?.message || 'Failed to load checkout summary');
+  const loadQuote = React.useCallback(
+    async (nextCouponCode?: string) => {
+      if (!isAuthenticated) return;
+      setLoadingQuote(true);
+      setAuthError(null);
+      setCouponError(null);
+      try {
+        const currentShipping = shippingRef.current;
+        const effectiveCouponCode =
+          nextCouponCode !== undefined ? nextCouponCode.trim() : couponCode.trim();
+        const quoteShippingAddress =
+          currentShipping.country.trim() ||
+          currentShipping.state.trim() ||
+          currentShipping.city.trim() ||
+          currentShipping.postalCode.trim()
+            ? {
+                ...(currentShipping.country.trim()
+                  ? { country: currentShipping.country.trim() }
+                  : {}),
+                ...(currentShipping.countryId
+                  ? { countryId: Number(currentShipping.countryId) }
+                  : {}),
+                ...(currentShipping.state.trim() ? { state: currentShipping.state.trim() } : {}),
+                ...(currentShipping.stateId ? { stateId: Number(currentShipping.stateId) } : {}),
+                ...(currentShipping.city.trim() ? { city: currentShipping.city.trim() } : {}),
+                ...(currentShipping.cityId ? { cityId: Number(currentShipping.cityId) } : {}),
+                ...(currentShipping.postalCode.trim()
+                  ? { postalCode: currentShipping.postalCode.trim() }
+                  : {}),
+              }
+            : undefined;
+        const data = await fetchCheckoutQuote({
+          paymentMethodCode: payment.method,
+          ...(quoteShippingAddress ? { shippingAddress: quoteShippingAddress } : {}),
+          ...(effectiveCouponCode ? { couponCode: effectiveCouponCode } : {}),
+        });
+        const nextCouponError = getCouponErrorMessage(data.errors ?? []);
+        if (nextCouponError) {
+          setCouponError(nextCouponError);
+          setCouponCode('');
+        } else if (effectiveCouponCode) {
+          setCouponCode(effectiveCouponCode);
+        }
+        setQuote(data);
+      } catch (err) {
+        const e = err as { message?: string; status?: number; code?: string };
+        const msg = (e?.message || '').toLowerCase();
+        const code = (e?.code || '').toLowerCase();
+        if (
+          e?.status === 401 ||
+          code === 'unauthorized' ||
+          code === 'norefresh' ||
+          msg.includes('auth')
+        ) {
+          setAuthError('Please sign in to continue checkout.');
+        } else {
+          toast.error(e?.message || 'Failed to load checkout summary');
+        }
+        setQuote(null);
+      } finally {
+        setLoadingQuote(false);
       }
-      setQuote(null);
-    } finally {
-      setLoadingQuote(false);
-    }
-  }, [payment.method, isAuthenticated]);
+    },
+    [payment.method, isAuthenticated, couponCode],
+  );
 
   React.useEffect(() => {
     if (authLoading || !isAuthenticated || !shippingPrefillReady) return;
@@ -277,6 +306,25 @@ export default function CheckoutClient() {
       })),
     [quote],
   );
+  const checkoutErrors = React.useMemo(
+    () =>
+      (quote?.errors ?? []).filter(
+        errorCode =>
+          ![
+            'COUPON_INVALID',
+            'COUPON_EXPIRED',
+            'COUPON_USAGE_LIMIT_REACHED',
+            'COUPON_MIN_SUBTOTAL_NOT_MET',
+            'COUPON_NOT_STARTED',
+          ].includes(errorCode),
+      ),
+    [quote],
+  );
+  const canPlaceOrderIgnoringCouponErrors = React.useMemo(() => {
+    if (!quote) return false;
+    if (loadingQuote || authError) return false;
+    return checkoutErrors.length === 0;
+  }, [quote, loadingQuote, authError, checkoutErrors]);
 
   const validateShipping = React.useCallback(() => {
     if (!shipping.firstName.trim()) return 'First name is required.';
@@ -321,6 +369,7 @@ export default function CheckoutClient() {
       const result = await submitCheckout({
         paymentMethodCode: 'cod',
         shippingMethodCode: 'cod-default',
+        ...(couponCode.trim() ? { couponCode: couponCode.trim() } : {}),
         shippingAddress: {
           fullName: `${shipping.firstName} ${shipping.lastName}`.trim(),
           phone: shipping.phone.trim(),
@@ -413,11 +462,45 @@ export default function CheckoutClient() {
     sameAsShipping,
     saveAddressToAccount,
     orderNotes,
+    couponCode,
     updateUser,
     clearLocalCart,
     router,
     loadQuote,
   ]);
+
+  const applyCoupon = React.useCallback(async () => {
+    const nextCouponCode = couponInput.trim();
+    if (!nextCouponCode) {
+      setCouponCode('');
+      setCouponError(null);
+      setApplyingCoupon(true);
+      try {
+        await loadQuote('');
+      } finally {
+        setApplyingCoupon(false);
+      }
+      return;
+    }
+    setApplyingCoupon(true);
+    try {
+      await loadQuote(nextCouponCode);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }, [couponInput, loadQuote]);
+
+  const removeCoupon = React.useCallback(async () => {
+    setApplyingCoupon(true);
+    setCouponCode('');
+    setCouponInput('');
+    setCouponError(null);
+    try {
+      await loadQuote('');
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }, [loadQuote]);
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -640,9 +723,19 @@ export default function CheckoutClient() {
           taxLines={taxLines}
           totalMinor={totalMinor}
           warnings={quote?.warnings ?? []}
-          errors={quote?.errors ?? []}
-          canPlaceOrder={Boolean(quote?.canPlaceOrder) && !loadingQuote && !authError}
-          submitting={submitting || loadingQuote}
+          errors={checkoutErrors}
+          canPlaceOrder={canPlaceOrderIgnoringCouponErrors}
+          submitting={submitting || loadingQuote || applyingCoupon}
+          couponCode={couponCode}
+          couponInput={couponInput}
+          onCouponInputChange={value => {
+            setCouponInput(value.toUpperCase());
+            if (couponError) setCouponError(null);
+          }}
+          onApplyCoupon={applyCoupon}
+          onRemoveCoupon={removeCoupon}
+          couponApplying={applyingCoupon}
+          couponError={couponError}
           onPay={onPay}
         />
       </aside>

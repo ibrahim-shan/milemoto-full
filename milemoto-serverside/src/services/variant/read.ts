@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { variants, variantvalues } from '@milemoto/types';
 import type { VariantValueResponse } from '@milemoto/types';
 import type { ListQueryDto } from '../../routes/admin/helpers/variant.helpers.js';
@@ -8,18 +8,46 @@ import { buildPaginatedResponse } from '../../utils/response.js';
 import { mapVariant, mapVariantValue } from './shared.js';
 
 export async function listVariants(params: ListQueryDto) {
-  const { page, limit, search, status } = params;
+  const {
+    page,
+    limit,
+    search,
+    status,
+    filterMode = 'all',
+    sortBy = 'name',
+    sortDir = 'asc',
+  } = params;
   const offset = (page - 1) * limit;
 
-  const filters = [
-    search ? or(like(variants.name, `%${search}%`), like(variants.slug, `%${search}%`)) : undefined,
-    status ? eq(variants.status, status) : undefined,
-  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
-
-  const where = filters.length ? and(...filters) : undefined;
+  const searchFilter = search
+    ? or(like(variants.name, `%${search}%`), like(variants.slug, `%${search}%`))
+    : undefined;
+  const optionalFilters = [status ? eq(variants.status, status) : undefined].filter(Boolean);
+  const structuredFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, structuredFilter);
+  const sortColumn =
+    sortBy === 'status'
+      ? variants.status
+      : sortBy === 'createdAt'
+        ? variants.createdAt
+        : sortBy === 'updatedAt'
+          ? variants.updatedAt
+          : variants.name;
+  const orderByClause = sortDir === 'desc' ? desc(sortColumn) : asc(sortColumn);
 
   const [rows, countRows] = await Promise.all([
-    db.select().from(variants).where(where).orderBy(asc(variants.name)).limit(limit).offset(offset),
+    db
+      .select()
+      .from(variants)
+      .where(where)
+      .orderBy(orderByClause, asc(variants.id))
+      .limit(limit)
+      .offset(offset),
     db
       .select({ total: sql<number>`count(*)` })
       .from(variants)

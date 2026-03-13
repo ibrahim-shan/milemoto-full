@@ -13,8 +13,10 @@ type ColumnItem = {
 
 type ProductsToolbarProps = {
   filterConfig: FilterConfig[];
-  filters: Record<string, string | number | string[] | undefined>;
-  onFiltersChange: (filters: Record<string, string | number | string[] | undefined>) => void;
+  filters: Record<string, string | number | boolean | string[] | undefined>;
+  onFiltersChange: (
+    filters: Record<string, string | number | boolean | string[] | undefined>,
+  ) => void;
   search: string;
   onSearchChange: (value: string) => void;
   columns: ReadonlyArray<ColumnItem>;

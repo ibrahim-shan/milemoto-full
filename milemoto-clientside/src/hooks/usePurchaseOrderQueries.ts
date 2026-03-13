@@ -1,6 +1,7 @@
 import type {
   CreatePurchaseOrderDto,
   PaginatedPurchaseOrderResponse,
+  PurchaseOrderFilterOptionsResponse,
   PurchaseOrderResponse,
   UpdatePurchaseOrderDto,
 } from '@milemoto/types';
@@ -14,11 +15,14 @@ export type PurchaseOrderListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  filterMode?: 'all' | 'any';
   status?: string;
   vendorId?: number;
   paymentMethodId?: number;
   dateFrom?: string;
   dateTo?: string;
+  sortBy?: 'poNumber' | 'subject' | 'status' | 'total' | 'createdAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 type PurchaseOrderListResponse = PaginatedPurchaseOrderResponse;
@@ -30,6 +34,7 @@ export const purchaseOrderKeys = {
   all: ['purchaseOrders'] as const,
   lists: () => [...purchaseOrderKeys.all, 'list'] as const,
   list: (filters: PurchaseOrderListQuery) => [...purchaseOrderKeys.lists(), filters] as const,
+  filterOptions: () => [...purchaseOrderKeys.all, 'filter-options'] as const,
   details: () => [...purchaseOrderKeys.all, 'detail'] as const,
   detail: (id: number) => [...purchaseOrderKeys.details(), id] as const,
 };
@@ -44,6 +49,17 @@ export function useGetPurchaseOrders(params: PurchaseOrderListQuery) {
         ...data,
         items: data.items.map(mapPurchaseOrderResponse),
       };
+    },
+  });
+}
+
+export function useGetPurchaseOrderFilterOptions() {
+  return useQuery({
+    queryKey: purchaseOrderKeys.filterOptions(),
+    queryFn: async () => {
+      return authorizedGet<PurchaseOrderFilterOptionsResponse>(
+        '/admin/purchase-orders/filter-options',
+      );
     },
   });
 }

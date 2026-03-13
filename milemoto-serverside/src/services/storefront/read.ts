@@ -36,9 +36,10 @@ export async function listStorefrontProducts(query: StorefrontListQueryDto) {
   const stockAvailableAgg = db
     .select({
       productVariantId: stocklevels.productVariantId,
-      available: sql<number>`SUM(COALESCE(${stocklevels.onHand}, 0) - COALESCE(${stocklevels.allocated}, 0))`.as(
-        'available',
-      ),
+      available:
+        sql<number>`SUM(COALESCE(${stocklevels.onHand}, 0) - COALESCE(${stocklevels.allocated}, 0))`.as(
+          'available'
+        ),
     })
     .from(stocklevels)
     .groupBy(stocklevels.productVariantId)
@@ -51,7 +52,7 @@ export async function listStorefrontProducts(query: StorefrontListQueryDto) {
       variantCount: sql<number>`COUNT(*)`.as('variant_count'),
       singleVariantId: sql<number>`MIN(${productvariants.id})`.as('single_variant_id'),
       totalAvailable: sql<number>`SUM(COALESCE(${stockAvailableAgg.available}, 0))`.as(
-        'total_available',
+        'total_available'
       ),
     })
     .from(productvariants)
@@ -130,9 +131,14 @@ export async function listStorefrontProducts(query: StorefrontListQueryDto) {
             string | null
           >`(SELECT pi.imagePath FROM productimages pi WHERE pi.productId = ${products.id} AND pi.productVariantId IS NULL ORDER BY pi.isPrimary DESC, pi.id ASC LIMIT 1)`,
           startingPrice: activeVariantPriceAgg.minPrice,
+          totalAvailable: sql<number>`GREATEST(0, COALESCE(${activeVariantPriceAgg.totalAvailable}, 0))`,
           variantCount: activeVariantPriceAgg.variantCount,
-          singleVariantId: sql<number | null>`CASE WHEN ${activeVariantPriceAgg.variantCount} = 1 THEN ${activeVariantPriceAgg.singleVariantId} ELSE NULL END`,
-          singleVariantAvailable: sql<number | null>`CASE WHEN ${activeVariantPriceAgg.variantCount} = 1 THEN GREATEST(0, ${activeVariantPriceAgg.totalAvailable}) ELSE NULL END`,
+          singleVariantId: sql<
+            number | null
+          >`CASE WHEN ${activeVariantPriceAgg.variantCount} = 1 THEN ${activeVariantPriceAgg.singleVariantId} ELSE NULL END`,
+          singleVariantAvailable: sql<
+            number | null
+          >`CASE WHEN ${activeVariantPriceAgg.variantCount} = 1 THEN GREATEST(0, ${activeVariantPriceAgg.totalAvailable}) ELSE NULL END`,
         })
         .from(products)
         .innerJoin(activeVariantPriceAgg, eq(activeVariantPriceAgg.productId, products.id))
@@ -357,6 +363,22 @@ export async function getStorefrontProductBySlug(
     variants,
     specifications,
   };
+}
+
+export async function getStorefrontProductStatusBySlug(
+  slug: string
+): Promise<'active' | 'inactive' | 'not_found'> {
+  const rows = await db
+    .select({
+      status: products.status,
+    })
+    .from(products)
+    .where(eq(products.slug, slug))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return 'not_found';
+  return row.status === 'active' ? 'active' : 'inactive';
 }
 
 // ── Get filter options (categories, brands, grades with counts) ─────────────

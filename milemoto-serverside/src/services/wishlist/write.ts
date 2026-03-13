@@ -48,7 +48,9 @@ export async function removeWishlistItemBySlug(userId: number, productSlug: stri
   if (product) {
     await db
       .delete(wishlistitems)
-      .where(and(eq(wishlistitems.userId, userId), eq(wishlistitems.productId, Number(product.id))));
+      .where(
+        and(eq(wishlistitems.userId, userId), eq(wishlistitems.productId, Number(product.id)))
+      );
   }
 
   return getWishlist(userId);
@@ -60,7 +62,7 @@ export async function clearWishlist(userId: number) {
 }
 
 export async function mergeWishlist(userId: number, input: MergeWishlistDto) {
-  const slugs = [...new Set(input.items.map(i => i.productSlug.trim()).filter(Boolean))];
+  const slugs = [...new Set(input.items.map((i) => i.productSlug.trim()).filter(Boolean))];
   if (slugs.length === 0) return getWishlist(userId);
 
   const productRows = await db
@@ -69,23 +71,24 @@ export async function mergeWishlist(userId: number, input: MergeWishlistDto) {
     .where(inArray(products.slug, slugs));
 
   const eligibleProductIds = productRows
-    .filter(p => p.status === 'active')
-    .map(p => Number(p.id));
+    .filter((p) => p.status === 'active')
+    .map((p) => Number(p.id));
 
   if (eligibleProductIds.length === 0) return getWishlist(userId);
 
   const existingRows = await db
     .select({ productId: wishlistitems.productId })
     .from(wishlistitems)
-    .where(and(eq(wishlistitems.userId, userId), inArray(wishlistitems.productId, eligibleProductIds)));
+    .where(
+      and(eq(wishlistitems.userId, userId), inArray(wishlistitems.productId, eligibleProductIds))
+    );
 
-  const existingSet = new Set(existingRows.map(r => Number(r.productId)));
-  const toInsert = eligibleProductIds.filter(id => !existingSet.has(id));
+  const existingSet = new Set(existingRows.map((r) => Number(r.productId)));
+  const toInsert = eligibleProductIds.filter((id) => !existingSet.has(id));
 
   if (toInsert.length > 0) {
-    await db.insert(wishlistitems).values(toInsert.map(productId => ({ userId, productId })));
+    await db.insert(wishlistitems).values(toInsert.map((productId) => ({ userId, productId })));
   }
 
   return getWishlist(userId);
 }
-

@@ -39,7 +39,10 @@ export type CreateGrade = z.infer<typeof CreateGradeSchema>;
 export type UpdateGrade = z.infer<typeof UpdateGradeSchema>;
 
 export const GradeListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
+  sortBy: z.enum(["name", "slug", "description", "status", "createdAt", "updatedAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type GradeListQueryDto = z.infer<typeof GradeListQuery>;

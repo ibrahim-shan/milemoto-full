@@ -49,6 +49,7 @@ export interface StorefrontProductListItem {
   shortDescription: string | null;
   imageSrc: string | null;
   startingPrice: number | null;
+  totalAvailable: number;
   variantCount: number;
   singleVariantId: number | null;
   singleVariantAvailable: number | null;

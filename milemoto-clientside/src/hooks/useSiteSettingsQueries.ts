@@ -2,14 +2,18 @@ import type {
   BrandingSettingsDto,
   DocumentSettingsDto,
   FeatureTogglesSettingsDto,
+  InvoicePolicySettingsDto,
   LocalizationSettingsDto,
+  OrderRequestPolicySettingsDto,
   StockDisplaySettingsDto,
   StoreCurrencySettingsDto,
   TaxPolicySettingsDto,
   UpdateBrandingSettingsDto,
   UpdateDocumentSettingsDto,
   UpdateFeatureTogglesSettingsDto,
+  UpdateInvoicePolicySettingsDto,
   UpdateLocalizationSettingsDto,
+  UpdateOrderRequestPolicySettingsDto,
   UpdateStockDisplaySettingsDto,
   UpdateStoreCurrencySettingsDto,
   UpdateTaxPolicySettingsDto,
@@ -32,6 +36,8 @@ export const siteSettingsKeys = {
   featureToggles: () => [...siteSettingsKeys.all, 'featureToggles'] as const,
   stockDisplay: () => [...siteSettingsKeys.all, 'stockDisplay'] as const,
   taxPolicy: () => [...siteSettingsKeys.all, 'taxPolicy'] as const,
+  orderRequestPolicy: () => [...siteSettingsKeys.all, 'orderRequestPolicy'] as const,
+  invoicePolicy: () => [...siteSettingsKeys.all, 'invoicePolicy'] as const,
 };
 
 type QueryOptions = {
@@ -78,6 +84,18 @@ const getTaxPolicySettings = () => authorizedGet<TaxPolicySettingsDto>(`${API_BA
 
 const updateTaxPolicySettings = (data: UpdateTaxPolicySettingsDto) =>
   authorizedPut<TaxPolicySettingsDto>(`${API_BASE}/tax-policy`, data);
+
+const getOrderRequestPolicySettings = () =>
+  authorizedGet<OrderRequestPolicySettingsDto>(`${API_BASE}/order-request-policy`);
+
+const updateOrderRequestPolicySettings = (data: UpdateOrderRequestPolicySettingsDto) =>
+  authorizedPut<OrderRequestPolicySettingsDto>(`${API_BASE}/order-request-policy`, data);
+
+const getInvoicePolicySettings = () =>
+  authorizedGet<InvoicePolicySettingsDto>(`${API_BASE}/invoice-policy`);
+
+const updateInvoicePolicySettings = (data: UpdateInvoicePolicySettingsDto) =>
+  authorizedPut<InvoicePolicySettingsDto>(`${API_BASE}/invoice-policy`, data);
 
 // ==== Hooks =====================================================
 
@@ -253,6 +271,56 @@ export const useUpdateTaxPolicySettings = () => {
     },
     onSuccess: data => {
       queryClient.setQueryData(siteSettingsKeys.taxPolicy(), data);
+    },
+  });
+};
+
+export const useGetOrderRequestPolicySettings = () =>
+  useQuery({
+    queryKey: siteSettingsKeys.orderRequestPolicy(),
+    queryFn: getOrderRequestPolicySettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+export const useUpdateOrderRequestPolicySettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: UpdateOrderRequestPolicySettingsDto) => {
+      const promise = updateOrderRequestPolicySettings(data);
+      toast.promise(promise, {
+        loading: 'Saving order request policy settings...',
+        success: 'Order request policy settings saved successfully.',
+        error: 'Failed to save order request policy settings.',
+      });
+      return await promise;
+    },
+    onSuccess: data => {
+      queryClient.setQueryData(siteSettingsKeys.orderRequestPolicy(), data);
+    },
+  });
+};
+
+export const useGetInvoicePolicySettings = () =>
+  useQuery({
+    queryKey: siteSettingsKeys.invoicePolicy(),
+    queryFn: getInvoicePolicySettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+export const useUpdateInvoicePolicySettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: UpdateInvoicePolicySettingsDto) => {
+      const promise = updateInvoicePolicySettings(data);
+      toast.promise(promise, {
+        loading: 'Saving invoice policy settings...',
+        success: 'Invoice policy settings saved successfully.',
+        error: 'Failed to save invoice policy settings.',
+      });
+      return await promise;
+    },
+    onSuccess: data => {
+      queryClient.setQueryData(siteSettingsKeys.invoicePolicy(), data);
     },
   });
 };

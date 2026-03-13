@@ -3,6 +3,7 @@ import type {
   CreateStockTransferDto,
   PaginatedStockLevelResponse,
   PaginatedStockMovementResponse,
+  StockFilterOptionsResponse,
   StockLevelResponse,
   StockMovementResponse,
   StockSummaryResponse,
@@ -19,7 +20,26 @@ export type StockLevelListQuery = {
   search?: string;
   productVariantId?: number;
   productId?: number;
+  brandId?: number;
+  categoryId?: number;
+  subCategoryId?: number;
   stockLocationId?: number;
+  lowStockOnly?: boolean;
+  outOfStockOnly?: boolean;
+  allocatedOnly?: boolean;
+  onOrderOnly?: boolean;
+  filterMode?: 'all' | 'any';
+  sortBy?:
+    | 'sku'
+    | 'productName'
+    | 'stockLocationName'
+    | 'costPrice'
+    | 'price'
+    | 'onHand'
+    | 'allocated'
+    | 'onOrder'
+    | 'updatedAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 export type StockMovementListQuery = {
@@ -29,6 +49,15 @@ export type StockMovementListQuery = {
   productVariantId?: number;
   stockLocationId?: number;
   type?: StockMovementResponse['type'];
+  sortBy?:
+    | 'createdAt'
+    | 'sku'
+    | 'productName'
+    | 'stockLocationName'
+    | 'quantity'
+    | 'type'
+    | 'referenceType';
+  sortDir?: 'asc' | 'desc';
 };
 
 export const stockKeys = {
@@ -38,6 +67,7 @@ export const stockKeys = {
   movements: () => [...stockKeys.all, 'movements'] as const,
   movementList: (params: StockMovementListQuery) => [...stockKeys.movements(), params] as const,
   summary: () => [...stockKeys.all, 'summary'] as const,
+  filterOptions: () => [...stockKeys.all, 'filter-options'] as const,
 };
 
 type QueryOptions = {
@@ -72,6 +102,14 @@ export function useGetStockSummary(options?: QueryOptions) {
     queryKey: stockKeys.summary(),
     enabled: options?.enabled ?? true,
     queryFn: async () => authorizedGet<StockSummaryResponse>('/admin/stock/summary'),
+  });
+}
+
+export function useGetStockFilterOptions(options?: QueryOptions) {
+  return useQuery({
+    queryKey: stockKeys.filterOptions(),
+    enabled: options?.enabled ?? true,
+    queryFn: async () => authorizedGet<StockFilterOptionsResponse>('/admin/stock/filter-options'),
   });
 }
 

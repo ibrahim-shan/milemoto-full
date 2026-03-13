@@ -7,9 +7,12 @@ import { OrderStatusBadge } from './order-status';
 
 import { useAuth } from '@/hooks/useAuth';
 import { fetchMyOrders } from '@/lib/checkout';
+import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import type { CustomerOrderListItem } from '@/types';
 import { Button } from '@/ui/button';
+import { FallbackImage } from '@/ui/fallback-image';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
+import { TableActionsMenu } from '@/ui/table-actions-menu';
 
 function formatMoney(amount: number, currency: string) {
   try {
@@ -140,7 +143,21 @@ export function OrdersListClient() {
                     key={order.id}
                     className={placedOrderId === order.id ? 'bg-emerald-50/60' : undefined}
                   >
-                    <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className="border-border/60 bg-muted relative h-10 w-10 shrink-0 overflow-hidden rounded-md border">
+                          <FallbackImage
+                            src={order.imageSrc}
+                            fallbackSrc={IMAGE_PLACEHOLDERS.productSquare}
+                            alt={order.orderNumber}
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                          />
+                        </div>
+                        <span>{order.orderNumber}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <OrderStatusBadge status={order.status} />
                     </TableCell>
@@ -158,13 +175,17 @@ export function OrdersListClient() {
                       {formatMoney(order.grandTotal, order.currency)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        href={`/account/orders/${order.id}`}
-                        variant="outline"
-                        size="sm"
-                      >
-                        View
-                      </Button>
+                      <div className="flex justify-end">
+                        <TableActionsMenu
+                          triggerLabel={`Actions for ${order.orderNumber}`}
+                          items={[
+                            {
+                              label: 'View Order',
+                              href: `/account/orders/${order.id}`,
+                            },
+                          ]}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -179,9 +200,21 @@ export function OrdersListClient() {
                 className={`rounded-lg border p-4 ${placedOrderId === order.id ? 'border-emerald-200 bg-emerald-50/50' : 'border-border/60'}`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{order.orderNumber}</p>
-                    <p className="text-muted-foreground text-xs">{formatDate(order.placedAt)}</p>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="border-border/60 bg-muted relative h-10 w-10 shrink-0 overflow-hidden rounded-md border">
+                      <FallbackImage
+                        src={order.imageSrc}
+                        fallbackSrc={IMAGE_PLACEHOLDERS.productSquare}
+                        alt={order.orderNumber}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{order.orderNumber}</p>
+                      <p className="text-muted-foreground text-xs">{formatDate(order.placedAt)}</p>
+                    </div>
                   </div>
                   <OrderStatusBadge status={order.status} />
                 </div>

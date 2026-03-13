@@ -24,6 +24,10 @@ export const PERMISSIONS = {
     COLLECTIONS_READ: 'collections.read',
     COLLECTIONS_MANAGE: 'collections.manage',
 
+    // Reviews
+    REVIEWS_READ: 'reviews.read',
+    REVIEWS_MANAGE: 'reviews.manage',
+
     // Customers
     CUSTOMERS_READ: 'customers.read',
     CUSTOMERS_MANAGE: 'customers.manage',

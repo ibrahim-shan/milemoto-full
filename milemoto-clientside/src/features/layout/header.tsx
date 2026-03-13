@@ -223,7 +223,7 @@ export function Header() {
               className={
                 isHome
                   ? 'inline-flex h-11 w-11 items-center justify-center rounded-md text-sm text-white/90 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:outline-none'
-                  : 'inline-flex h-11 w-11 items-center justify-center rounded-md text-sm text-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground focus:outline-none focus-visible:outline-none'
+                  : 'text-foreground/80 hover:bg-muted/50 hover:text-foreground inline-flex h-11 w-11 items-center justify-center rounded-md text-sm transition-colors focus:outline-none focus-visible:outline-none'
               }
             />
             <span
@@ -270,7 +270,7 @@ export function Header() {
                 {mounted && favoriteCount > 0 && (
                   <span
                     aria-label={`${favoriteCount} items in favorites`}
-                    className="bg-rose-500 text-white absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none"
+                    className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
                   >
                     {favoriteCount > 99 ? '99+' : favoriteCount}
                   </span>

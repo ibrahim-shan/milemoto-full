@@ -55,8 +55,13 @@ export function errorHandler(
   };
 
   if (err instanceof ZodError) {
+    const validationContext = {
+      ...errorContext,
+      status: 400,
+      code: 'ValidationError',
+    };
     log?.warn?.(
-      { ...errorContext, validationErrors: z.treeifyError(err) },
+      { ...validationContext, validationErrors: z.treeifyError(err) },
       'Request validation failed'
     );
     return res

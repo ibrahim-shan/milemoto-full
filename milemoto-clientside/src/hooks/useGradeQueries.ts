@@ -12,7 +12,10 @@ export type GradeListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  filterMode?: 'all' | 'any';
   status?: 'active' | 'inactive';
+  sortBy?: 'name' | 'slug' | 'description' | 'status' | 'createdAt' | 'updatedAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 // Keys

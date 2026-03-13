@@ -5,8 +5,10 @@ import { StorefrontListQuery } from '@milemoto/types';
 import {
   listStorefrontProducts,
   getStorefrontProductBySlug,
+  getStorefrontProductStatusBySlug,
   getStorefrontFilters,
 } from '../services/storefront/read.js';
+import { getStorefrontProductReviewsBySlug } from '../services/reviews.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { httpError } from '../utils/error.js';
 
@@ -39,9 +41,24 @@ router.get(
     const slug = z.string().min(1).parse(req.params.slug);
     const result = await getStorefrontProductBySlug(slug);
     if (!result) {
+      const status = await getStorefrontProductStatusBySlug(slug);
+      if (status === 'inactive') {
+        throw httpError(410, 'ProductUnavailable', 'Product is unavailable');
+      }
       throw httpError(404, 'NotFound', 'Product not found');
     }
     setPublicCache(res, 60, 600); // 60s fresh, 10 min stale for individual products
+    res.json(result);
+  })
+);
+
+// GET /storefront/products/:slug/reviews — Approved product reviews
+router.get(
+  '/products/:slug/reviews',
+  asyncHandler(async (req, res) => {
+    const slug = z.string().min(1).parse(req.params.slug);
+    const result = await getStorefrontProductReviewsBySlug(slug);
+    setPublicCache(res, 30, 120);
     res.json(result);
   })
 );

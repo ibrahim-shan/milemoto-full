@@ -7,8 +7,27 @@ export const CustomerOrdersListQuery = PaginationSchema.extend({
 export type CustomerOrdersListQueryDto = z.infer<typeof CustomerOrdersListQuery>;
 
 export const AdminOrdersListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: z.string().trim().min(1).max(50).optional(),
+  paymentStatus: z.string().trim().min(1).max(50).optional(),
+  paymentMethod: z.string().trim().min(1).max(100).optional(),
   search: z.string().trim().min(1).max(100).optional(),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  sortBy: z
+    .enum([
+      "orderNumber",
+      "customerName",
+      "status",
+      "paymentStatus",
+      "paymentMethod",
+      "itemCount",
+      "placedAt",
+      "grandTotal",
+      "createdAt",
+    ])
+    .optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 export type AdminOrdersListQueryDto = z.infer<typeof AdminOrdersListQuery>;
 
@@ -18,6 +37,7 @@ export interface CustomerOrderListItem {
   status: string;
   paymentStatus: string;
   paymentMethod: string;
+  imageSrc?: string | null;
   itemCount: number;
   grandTotal: number;
   currency: string;
@@ -34,6 +54,10 @@ export interface AdminOrderListItem extends CustomerOrderListItem {
 }
 
 export type AdminOrdersListResponse = PaginatedResponse<AdminOrderListItem>;
+
+export interface AdminOrderFilterOptionsResponse {
+  paymentMethods: string[];
+}
 
 export interface CustomerOrderDetailItem {
   id: number;
@@ -112,3 +136,108 @@ export interface CustomerOrderDetailResponse {
 export interface AdminOrderDetailResponse extends CustomerOrderDetailResponse {
   userId: number;
 }
+
+export const OrderRequestTypeSchema = z.enum(["cancel", "return", "refund"]);
+export type OrderRequestType = z.infer<typeof OrderRequestTypeSchema>;
+
+export const OrderRequestStatusSchema = z.enum([
+  "pending",
+  "approved",
+  "rejected",
+  "completed",
+  "cancelled_by_user",
+]);
+export type OrderRequestStatus = z.infer<typeof OrderRequestStatusSchema>;
+
+const QueryBoolean = z.preprocess(
+  (value) => (typeof value === "boolean" ? String(value) : value),
+  z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+);
+
+export const CreateOrderRequestInput = z.object({
+  type: OrderRequestTypeSchema,
+  reason: z.string().trim().min(1).max(1000),
+  metadataJson: z.string().trim().max(10000).optional(),
+});
+export type CreateOrderRequestDto = z.infer<typeof CreateOrderRequestInput>;
+
+export const CancelOrderRequestInput = z.object({
+  reason: z.string().trim().min(1).max(1000).optional(),
+});
+export type CancelOrderRequestDto = z.infer<typeof CancelOrderRequestInput>;
+
+export const CancelCustomerOrderRequestInput = z.object({
+  reason: z.string().trim().min(1).max(1000).optional(),
+});
+export type CancelCustomerOrderRequestDto = z.infer<typeof CancelCustomerOrderRequestInput>;
+
+export const CustomerOrderRequestsListQuery = PaginationSchema.extend({
+  orderId: z.coerce.number().int().positive().optional(),
+  type: OrderRequestTypeSchema.optional(),
+  status: OrderRequestStatusSchema.optional(),
+});
+export type CustomerOrderRequestsListQueryDto = z.infer<typeof CustomerOrderRequestsListQuery>;
+
+export const AdminOrderRequestsListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
+  orderId: z.coerce.number().int().positive().optional(),
+  type: OrderRequestTypeSchema.optional(),
+  status: OrderRequestStatusSchema.optional(),
+  search: z.string().trim().min(1).max(100).optional(),
+  onlyRequiresStockAction: QueryBoolean.optional(),
+  onlyRefundPendingCompletion: QueryBoolean.optional(),
+  sortBy: z.enum(["id", "orderNumber", "customerName", "status", "requestedAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
+});
+export type AdminOrderRequestsListQueryDto = z.infer<typeof AdminOrderRequestsListQuery>;
+
+export interface OrderRequestItem {
+  id: number;
+  orderId: number;
+  userId: number;
+  type: OrderRequestType;
+  status: OrderRequestStatus;
+  reason: string | null;
+  adminNote: string | null;
+  metadataJson: string | null;
+  requestedAt: string;
+  decidedAt: string | null;
+  completedAt: string | null;
+  decidedByUserId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminOrderRequestItem extends OrderRequestItem {
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+}
+
+export type CustomerOrderRequestsListResponse = PaginatedResponse<OrderRequestItem>;
+export type AdminOrderRequestsListResponse = PaginatedResponse<AdminOrderRequestItem>;
+
+export const DecideOrderRequestInput = z
+  .object({
+    status: z.enum(["approved", "rejected"]),
+    adminNote: z.string().trim().min(1).max(1000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "rejected" && !value.adminNote) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["adminNote"],
+        message: "Admin note is required when rejecting a request",
+      });
+    }
+  });
+export type DecideOrderRequestDto = z.infer<typeof DecideOrderRequestInput>;
+
+export const CompleteOrderRequestInput = z.object({
+  adminNote: z.string().trim().min(1).max(1000).optional(),
+  refundPaymentStatus: z.enum(["refunded", "partially_refunded"]).optional(),
+  returnStockLocationId: z.coerce.number().int().positive().optional(),
+});
+export type CompleteOrderRequestDto = z.infer<typeof CompleteOrderRequestInput>;

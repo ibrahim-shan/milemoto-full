@@ -51,6 +51,7 @@ export function ColumnVisibilityMenu({
             >
               <Checkbox
                 checked={checked}
+                aria-label={`Toggle ${column.label} column`}
                 onCheckedChange={value => {
                   if (column.alwaysVisible) return;
                   onToggle(column.id, value === true);

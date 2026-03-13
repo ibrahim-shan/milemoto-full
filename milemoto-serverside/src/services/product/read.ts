@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, gte, inArray, isNull, like, lte, or, sql } from 'drizzle-orm';
 import {
   brands,
   categories,
@@ -13,6 +13,7 @@ import {
   unitgroups,
   unitvalues,
   variantvalues,
+  vendors,
   warranties,
 } from '@milemoto/types';
 import { db } from '../../db/drizzle.js';
@@ -23,6 +24,7 @@ import { productSelect, type ProductVariantListItem } from './shared.js';
 
 export async function listProducts(query: ListQueryDto) {
   const offset = (query.page - 1) * query.limit;
+  const filterMode = query.filterMode ?? 'all';
   const categoryIds = Array.isArray(query.categoryId)
     ? query.categoryId
     : query.categoryId
@@ -37,6 +39,11 @@ export async function listProducts(query: ListQueryDto) {
     ? query.brandId
     : query.brandId
       ? [query.brandId]
+      : [];
+  const vendorIds = Array.isArray(query.vendorId)
+    ? query.vendorId
+    : query.vendorId
+      ? [query.vendorId]
       : [];
   const gradeIds = Array.isArray(query.gradeId)
     ? query.gradeId
@@ -54,10 +61,64 @@ export async function listProducts(query: ListQueryDto) {
       ? [query.specValueId]
       : [];
 
-  const filters = [
+  const searchFilter = query.search
+    ? (() => {
+        const search = query.search.trim();
+        // Use FULLTEXT for 3+ char searches (MySQL ft_min_word_len default)
+        if (search.length >= 3) {
+          return or(
+            sql`MATCH(${products.name}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`,
+            exists(
+              db
+                .select({ one: sql<number>`1` })
+                .from(productvariants)
+                .where(
+                  and(
+                    eq(productvariants.productId, products.id),
+                    sql`MATCH(${productvariants.name}, ${productvariants.sku}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`
+                  )
+                )
+            ),
+            // Also check barcode with LIKE (not in FULLTEXT index)
+            exists(
+              db
+                .select({ one: sql<number>`1` })
+                .from(productvariants)
+                .where(
+                  and(
+                    eq(productvariants.productId, products.id),
+                    like(productvariants.barcode, `%${search}%`)
+                  )
+                )
+            )
+          );
+        }
+        // Fall back to LIKE for short queries
+        return or(
+          like(products.name, `%${search}%`),
+          exists(
+            db
+              .select({ one: sql<number>`1` })
+              .from(productvariants)
+              .where(
+                and(
+                  eq(productvariants.productId, products.id),
+                  or(
+                    like(productvariants.sku, `%${search}%`),
+                    like(productvariants.barcode, `%${search}%`)
+                  )
+                )
+              )
+          )
+        );
+      })()
+    : undefined;
+
+  const optionalFilters = [
     categoryIds.length > 0 ? inArray(products.categoryId, categoryIds) : undefined,
     subCategoryIds.length > 0 ? inArray(products.subCategoryId, subCategoryIds) : undefined,
     brandIds.length > 0 ? inArray(products.brandId, brandIds) : undefined,
+    vendorIds.length > 0 ? inArray(products.vendorId, vendorIds) : undefined,
     gradeIds.length > 0 ? inArray(products.gradeId, gradeIds) : undefined,
     warrantyIds.length > 0 ? inArray(products.warrantyId, warrantyIds) : undefined,
     specValueIds.length > 0
@@ -75,61 +136,70 @@ export async function listProducts(query: ListQueryDto) {
       : undefined,
     query.status ? eq(products.status, query.status) : undefined,
     query.isFeatured !== undefined ? eq(products.isFeatured, query.isFeatured) : undefined,
-    query.search
-      ? (() => {
-          const search = query.search.trim();
-          // Use FULLTEXT for 3+ char searches (MySQL ft_min_word_len default)
-          if (search.length >= 3) {
-            return or(
-              sql`MATCH(${products.name}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`,
-              exists(
-                db
-                  .select({ one: sql<number>`1` })
-                  .from(productvariants)
-                  .where(
-                    and(
-                      eq(productvariants.productId, products.id),
-                      sql`MATCH(${productvariants.name}, ${productvariants.sku}) AGAINST(${search} IN NATURAL LANGUAGE MODE)`
-                    )
-                  )
-              ),
-              // Also check barcode with LIKE (not in FULLTEXT index)
-              exists(
-                db
-                  .select({ one: sql<number>`1` })
-                  .from(productvariants)
-                  .where(
-                    and(
-                      eq(productvariants.productId, products.id),
-                      like(productvariants.barcode, `%${search}%`)
-                    )
-                  )
-              )
-            );
-          }
-          // Fall back to LIKE for short queries
-          return or(
-            like(products.name, `%${search}%`),
-            exists(
-              db
-                .select({ one: sql<number>`1` })
-                .from(productvariants)
-                .where(
-                  and(
-                    eq(productvariants.productId, products.id),
-                    or(
-                      like(productvariants.sku, `%${search}%`),
-                      like(productvariants.barcode, `%${search}%`)
-                    )
-                  )
-                )
+    query.sku
+      ? exists(
+          db
+            .select({ one: sql<number>`1` })
+            .from(productvariants)
+            .where(
+              and(eq(productvariants.productId, products.id), like(productvariants.sku, `%${query.sku}%`))
             )
-          );
-        })()
+        )
       : undefined,
-  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
+    query.priceMin !== undefined || query.priceMax !== undefined
+      ? exists(
+          db
+            .select({ one: sql<number>`1` })
+            .from(productvariants)
+            .where(
+              and(
+                eq(productvariants.productId, products.id),
+                query.priceMin !== undefined ? gte(productvariants.price, query.priceMin) : undefined,
+                query.priceMax !== undefined ? lte(productvariants.price, query.priceMax) : undefined
+              )
+            )
+        )
+      : undefined,
+  ].filter(Boolean);
 
-  const where = filters.length ? and(...filters) : undefined;
+  const structuredFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, structuredFilter);
+  const sortBy = query.sortBy ?? 'createdAt';
+  const sortDir = query.sortDir ?? 'desc';
+  const subCategorySortExpr = sql<string | null>`(
+    SELECT c2.name
+    FROM categories c2
+    WHERE c2.id = ${products.subCategoryId}
+    LIMIT 1
+  )`;
+  const sortColumn =
+    sortBy === 'id'
+      ? products.id
+      : sortBy === 'name'
+        ? products.name
+        : sortBy === 'brand'
+          ? brands.name
+          : sortBy === 'category'
+            ? categories.name
+            : sortBy === 'subCategory'
+              ? subCategorySortExpr
+              : sortBy === 'grade'
+                ? grades.name
+                : sortBy === 'warranty'
+                  ? warranties.name
+                  : sortBy === 'featured'
+                    ? products.isFeatured
+                    : sortBy === 'status'
+                      ? products.status
+                      : sortBy === 'updatedAt'
+                        ? products.updatedAt
+                        : products.createdAt;
+  const orderByClause = sortDir === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
   const [items, countRows, variantCountRows] = await Promise.all([
     db
@@ -142,6 +212,9 @@ export async function listProducts(query: ListQueryDto) {
         >`(SELECT c2.name FROM categories c2 WHERE c2.id = ${products.subCategoryId} LIMIT 1)`,
         gradeName: grades.name,
         warrantyName: warranties.name,
+        imagePath: sql<
+          string | null
+        >`(SELECT pi.imagePath FROM productimages pi WHERE pi.productId = ${products.id} AND pi.productVariantId IS NULL ORDER BY pi.isPrimary DESC, pi.id ASC LIMIT 1)`,
         price: sql<
           number | null
         >`(SELECT pv.price FROM productvariants pv WHERE pv.productId = ${products.id} ORDER BY pv.id ASC LIMIT 1)`,
@@ -153,9 +226,10 @@ export async function listProducts(query: ListQueryDto) {
       .leftJoin(brands, eq(products.brandId, brands.id))
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(grades, eq(products.gradeId, grades.id))
+      .leftJoin(vendors, eq(products.vendorId, vendors.id))
       .leftJoin(warranties, eq(products.warrantyId, warranties.id))
       .where(where)
-      .orderBy(desc(products.createdAt))
+      .orderBy(orderByClause, desc(products.id))
       .limit(query.limit)
       .offset(offset),
     db

@@ -1,7 +1,6 @@
 // src/features/checkout/components/OrderSummary.tsx
 'use client';
 
-import * as React from 'react';
 import Image from 'next/image';
 
 import { formatPrice } from '@/lib/formatPrice';
@@ -37,6 +36,13 @@ export default function OrderSummary({
   errors = [],
   canPlaceOrder = true,
   submitting = false,
+  couponCode = '',
+  couponInput = '',
+  onCouponInputChange,
+  onApplyCoupon,
+  onRemoveCoupon,
+  couponApplying = false,
+  couponError = null,
   onPay,
 }: {
   items: Item[];
@@ -50,10 +56,15 @@ export default function OrderSummary({
   errors?: string[];
   canPlaceOrder?: boolean;
   submitting?: boolean;
+  couponCode?: string;
+  couponInput?: string;
+  onCouponInputChange: (value: string) => void;
+  onApplyCoupon: () => void;
+  onRemoveCoupon: () => void;
+  couponApplying?: boolean;
+  couponError?: string | null;
   onPay: () => void;
 }) {
-  const [code, setCode] = React.useState('');
-
   return (
     <div className="border-border/60 bg-card text-foreground rounded-2xl border p-6">
       <h3 className="text-primary mb-4 text-lg font-semibold">Order Summary</h3>
@@ -95,20 +106,39 @@ export default function OrderSummary({
           <Input
             id="coupon"
             name="coupon"
-            value={code}
-            onChange={e => setCode(e.target.value)}
+            value={couponInput}
+            onChange={e => onCouponInputChange(e.target.value)}
             placeholder="Enter coupon code"
             autoComplete="off"
             className="flex-1"
+            readOnly={Boolean(couponCode)}
+            disabled={couponApplying}
           />
           <Button
             type="button"
             variant="secondary"
             size="md"
+            onClick={onApplyCoupon}
+            disabled={couponApplying || couponInput.trim().length === 0 || Boolean(couponCode)}
           >
-            Apply
+            {couponApplying ? 'Applying...' : 'Apply'}
           </Button>
         </div>
+        {couponCode ? (
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="text-emerald-700">Applied: {couponCode}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRemoveCoupon}
+              disabled={couponApplying}
+            >
+              Remove
+            </Button>
+          </div>
+        ) : null}
+        {couponError ? <p className="mt-2 text-xs text-red-600">{couponError}</p> : null}
       </div>
 
       {warnings.length > 0 ? (

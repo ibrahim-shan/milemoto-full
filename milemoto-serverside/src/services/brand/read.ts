@@ -1,4 +1,4 @@
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm';
 import { brands } from '@milemoto/types';
 import type { BrandResponse } from '@milemoto/types';
 import type { ListQueryDto } from '../../routes/admin/helpers/brand.helpers.js';
@@ -8,20 +8,50 @@ import { buildPaginatedResponse } from '../../utils/response.js';
 import { toBrandResponse } from './shared.js';
 
 export async function listBrands(params: ListQueryDto) {
-  const { page, limit, search, status } = params;
+  const {
+    page,
+    limit,
+    search,
+    status,
+    filterMode = 'all',
+    sortBy = 'name',
+    sortDir = 'asc',
+  } = params;
   const offset = (page - 1) * limit;
 
-  const filters = [
-    search
-      ? or(like(brands.name, `%${search}%`), like(brands.description, `%${search}%`))
-      : undefined,
-    status ? eq(brands.status, status) : undefined,
-  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
-
-  const where = filters.length ? and(...filters) : undefined;
+  const searchFilter = search
+    ? or(like(brands.name, `%${search}%`), like(brands.description, `%${search}%`))
+    : undefined;
+  const optionalFilters = [status ? eq(brands.status, status) : undefined].filter(Boolean);
+  const structuredFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, structuredFilter);
+  const sortColumn =
+    sortBy === 'slug'
+      ? brands.slug
+      : sortBy === 'description'
+        ? brands.description
+        : sortBy === 'status'
+          ? brands.status
+          : sortBy === 'createdAt'
+            ? brands.createdAt
+            : sortBy === 'updatedAt'
+              ? brands.updatedAt
+              : brands.name;
+  const orderByClause = sortDir === 'desc' ? desc(sortColumn) : asc(sortColumn);
 
   const [items, countRows] = await Promise.all([
-    db.select().from(brands).where(where).orderBy(asc(brands.name)).limit(limit).offset(offset),
+    db
+      .select()
+      .from(brands)
+      .where(where)
+      .orderBy(orderByClause, asc(brands.id))
+      .limit(limit)
+      .offset(offset),
     db
       .select({ total: sql<number>`count(*)` })
       .from(brands)

@@ -6,8 +6,8 @@ import { useGetCategories } from '@/hooks/useCategoryQueries';
 import { GeneralCombobox } from '@/ui/combobox';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/ui/form';
 import { Input } from '@/ui/input';
-import { Switch } from '@/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
+import { Switch } from '@/ui/switch';
 import { Textarea } from '@/ui/textarea';
 
 export function GeneralTab() {

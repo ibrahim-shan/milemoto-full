@@ -1,4 +1,4 @@
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm';
 import { grades } from '@milemoto/types';
 import type { ListQueryDto } from '../../routes/admin/helpers/grade.helpers.js';
 import { buildPaginatedResponse } from '../../utils/response.js';
@@ -7,20 +7,33 @@ import { db } from '../../db/drizzle.js';
 import { formatGradeRow } from './shared.js';
 
 export async function listGrades(params: ListQueryDto) {
-  const { page, limit, search, status } = params;
+  const { page, limit, search, filterMode = 'all', status, sortBy, sortDir = 'asc' } = params;
   const offset = (page - 1) * limit;
 
-  const filters = [
-    search
-      ? or(like(grades.name, `%${search}%`), like(grades.description, `%${search}%`))
-      : undefined,
-    status ? eq(grades.status, status) : undefined,
-  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
-
-  const where = filters.length ? and(...filters) : undefined;
+  const searchFilter = search
+    ? or(like(grades.name, `%${search}%`), like(grades.description, `%${search}%`))
+    : undefined;
+  const optionalFilters = [status ? eq(grades.status, status) : undefined].filter(Boolean);
+  const combinedOptionalFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, combinedOptionalFilter);
+  const sortColumns = {
+    name: grades.name,
+    slug: grades.slug,
+    description: grades.description,
+    status: grades.status,
+    createdAt: grades.createdAt,
+    updatedAt: grades.updatedAt,
+  } as const;
+  const sortColumn = sortBy ? sortColumns[sortBy] : grades.name;
+  const orderExpr = sortDir === 'desc' ? desc(sortColumn) : asc(sortColumn);
 
   const [items, countRows] = await Promise.all([
-    db.select().from(grades).where(where).orderBy(asc(grades.name)).limit(limit).offset(offset),
+    db.select().from(grades).where(where).orderBy(orderExpr).limit(limit).offset(offset),
     db
       .select({ total: sql<number>`count(*)` })
       .from(grades)

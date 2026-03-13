@@ -17,6 +17,7 @@ export default async function Home() {
     slug: string;
     imageSrc: string | null;
     startingPrice: number | null;
+    totalAvailable: number;
     singleVariantId: number | null;
     singleVariantAvailable: number | null;
   }> = [];
@@ -38,6 +39,7 @@ export default async function Home() {
       slug: item.slug,
       imageSrc: item.imageSrc ?? null,
       startingPrice: item.startingPrice ?? null,
+      totalAvailable: item.totalAvailable ?? 0,
       singleVariantId: item.singleVariantId ?? null,
       singleVariantAvailable: item.singleVariantAvailable ?? null,
     }));
@@ -194,31 +196,8 @@ export default async function Home() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-              <CategoryCard
-                title="Brake & Suspensions"
-                href="/shop"
-                imageSrc="/images/categories/brakes.webp"
-                imageAlt="Brake and suspension parts"
-              />
-              <CategoryCard
-                title="Exhaust & Emissions"
-                href="/shop"
-                imageSrc="/images/categories/exhaust.webp"
-                imageAlt="Exhaust and emissions parts"
-              />
-              <CategoryCard
-                title="Tires & Wheels"
-                href="/shop"
-                imageSrc="/images/categories/tires.webp"
-                imageAlt="Tires and wheels"
-              />
-              <CategoryCard
-                title="Electrical Systems"
-                href="/shop"
-                imageSrc="/images/categories/electrical.webp"
-                imageAlt="Electrical system parts"
-              />
+            <div className="text-muted-foreground rounded-lg border p-6 text-sm">
+              No categories available right now.
             </div>
           )}
         </div>
@@ -251,42 +230,20 @@ export default async function Home() {
                   imageSrc={product.imageSrc || IMAGE_PLACEHOLDERS.product4x3}
                   imageAlt={product.name}
                   priceMinor={Math.round((product.startingPrice ?? 0) * 100)}
+                  outOfStock={Number(product.totalAvailable ?? 0) <= 0}
                   productSlug={product.slug}
-                  quickAddVariantId={product.singleVariantId ?? undefined}
-                  quickAddStock={product.singleVariantAvailable ?? undefined}
+                  {...(product.singleVariantId !== null
+                    ? { quickAddVariantId: product.singleVariantId }
+                    : {})}
+                  {...(product.singleVariantAvailable !== null
+                    ? { quickAddStock: product.singleVariantAvailable }
+                    : {})}
                 />
               ))
             ) : (
-              <>
-                <ProductCard
-                  title="Spark Plug Set"
-                  href="/product/spark-plug-set"
-                  imageSrc="/images/products/spark-plug.webp"
-                  imageAlt="Spark plug set"
-                  priceMinor={4500000}
-                />
-                <ProductCard
-                  title="Brake Pads"
-                  href="/product/brake-pads"
-                  imageSrc="/images/products/brake-pads.webp"
-                  imageAlt="Brake pads"
-                  priceMinor={4500000}
-                />
-                <ProductCard
-                  title="Tire Wheels"
-                  href="/product/tire-wheels"
-                  imageSrc="/images/products/tires.webp"
-                  imageAlt="Tire wheels"
-                  priceMinor={4500000}
-                />
-                <ProductCard
-                  title="Alternator"
-                  href="/product/alternator"
-                  imageSrc="/images/products/alternator.webp"
-                  imageAlt="Alternator"
-                  priceMinor={4500000}
-                />
-              </>
+              <div className="text-muted-foreground col-span-full rounded-lg border p-6 text-sm">
+                No featured products available right now.
+              </div>
             )}
           </div>
         </div>
@@ -355,35 +312,8 @@ export default async function Home() {
               Explore More <CornerUpRight className="ml-1 inline-block h-4 w-4" />
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            <ProductCard
-              title="Spark Plug Set"
-              href="/product/spark-plug-set"
-              imageSrc="/images/products/spark-plug.webp"
-              imageAlt="Spark plug set"
-              priceMinor={4500000}
-            />
-            <ProductCard
-              title="Brake Pads"
-              href="/product/brake-pads"
-              imageSrc="/images/products/brake-pads.webp"
-              imageAlt="Brake pads"
-              priceMinor={4500000}
-            />
-            <ProductCard
-              title="Tire Wheels"
-              href="/product/tire-wheels"
-              imageSrc="/images/products/tires.webp"
-              imageAlt="Tire wheels"
-              priceMinor={4500000}
-            />
-            <ProductCard
-              title="Alternator"
-              href="/product/alternator"
-              imageSrc="/images/products/alternator.webp"
-              imageAlt="Alternator"
-              priceMinor={4500000}
-            />
+          <div className="text-muted-foreground rounded-lg border p-6 text-sm">
+            No best sellers available right now.
           </div>
         </div>
       </section>

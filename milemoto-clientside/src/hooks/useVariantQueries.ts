@@ -21,7 +21,10 @@ type ListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  filterMode?: 'all' | 'any';
   status?: 'active' | 'inactive';
+  sortBy?: 'name' | 'status' | 'createdAt' | 'updatedAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 // Query keys

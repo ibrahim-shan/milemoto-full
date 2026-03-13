@@ -15,8 +15,11 @@ export type CollectionListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  filterMode?: 'all' | 'any';
   status?: 'active' | 'inactive';
   type?: 'manual' | 'automatic';
+  sortBy?: 'name' | 'type' | 'matchType' | 'status' | 'createdAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 export const collectionKeys = {

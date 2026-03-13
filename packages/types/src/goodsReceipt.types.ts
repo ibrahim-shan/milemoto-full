@@ -29,7 +29,13 @@ export const CreateGoodsReceipt = z.object({
 });
 
 export const GoodsReceiptListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   purchaseOrderId: z.coerce.number().int().positive().optional(),
+  status: GoodsReceiptStatus.optional(),
+  dateFrom: OptionalDateOnlyStringSchema,
+  dateTo: OptionalDateOnlyStringSchema,
+  sortBy: z.enum(["grnNumber", "poNumber", "status", "receivedAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type CreateGoodsReceiptDto = z.infer<typeof CreateGoodsReceipt>;

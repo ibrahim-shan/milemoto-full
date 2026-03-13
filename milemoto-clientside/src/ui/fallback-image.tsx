@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image, { type ImageProps } from 'next/image';
 
 type FallbackImageProps = Omit<ImageProps, 'src'> & {
-  src?: string | null;
+  src?: string | null | undefined;
   fallbackSrc: string;
 };
 

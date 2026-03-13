@@ -1,4 +1,4 @@
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm';
 import { stocklocations } from '@milemoto/types';
 import type { ListQueryDto as StockLocationQueryDto } from '../../routes/admin/helpers/stockLocation.helpers.js';
 import { buildPaginatedResponse } from '../../utils/response.js';
@@ -7,28 +7,48 @@ import { db } from '../../db/drizzle.js';
 import { formatStockLocation } from './shared.js';
 
 export async function listStockLocations(params: StockLocationQueryDto) {
-  const { page, limit, search, status, type } = params;
+  const { page, limit, search, status, type, filterMode = 'all', sortBy, sortDir = 'asc' } = params;
   const offset = (page - 1) * limit;
 
-  const filters = [
-    search
-      ? or(
-          like(stocklocations.name, `%${search}%`),
-          like(stocklocations.description, `%${search}%`)
-        )
-      : undefined,
+  const searchFilter = search
+    ? or(like(stocklocations.name, `%${search}%`), like(stocklocations.description, `%${search}%`))
+    : undefined;
+
+  const facetFilters = [
     status ? eq(stocklocations.status, status) : undefined,
     type ? eq(stocklocations.type, type) : undefined,
   ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
 
-  const where = filters.length ? and(...filters) : undefined;
+  const structuredFilter =
+    facetFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...facetFilters)!
+        : and(...facetFilters)!;
+
+  const whereFilters = [searchFilter, structuredFilter].filter(Boolean) as NonNullable<
+    ReturnType<typeof and>
+  >[];
+  const where = whereFilters.length ? and(...whereFilters) : undefined;
+
+  const sortColumns = {
+    name: stocklocations.name,
+    type: stocklocations.type,
+    status: stocklocations.status,
+    description: stocklocations.description,
+    createdAt: stocklocations.createdAt,
+    updatedAt: stocklocations.updatedAt,
+  } as const;
+
+  const sortColumn = sortBy ? sortColumns[sortBy] : undefined;
+  const primarySort = sortColumn ? (sortDir === 'desc' ? desc(sortColumn) : asc(sortColumn)) : null;
 
   const [items, countRows] = await Promise.all([
     db
       .select()
       .from(stocklocations)
       .where(where)
-      .orderBy(asc(stocklocations.createdAt))
+      .orderBy(...(primarySort ? [primarySort] : []), asc(stocklocations.createdAt))
       .limit(limit)
       .offset(offset),
     db

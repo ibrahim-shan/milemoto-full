@@ -23,7 +23,7 @@ export type PurchaseOrderColumn = {
 };
 
 export const PURCHASE_ORDER_COLUMNS: PurchaseOrderColumn[] = [
-  { id: 'poNumber', label: 'PO #' },
+  { id: 'poNumber', label: 'PO #', alwaysVisible: true },
   { id: 'subject', label: 'Subject' },
   { id: 'status', label: 'Status' },
   { id: 'total', label: 'Total' },

@@ -1,6 +1,8 @@
 import { PurchaseOrderStatusBadge } from '@/features/admin/purchase-orders/purchase-order-status-badge';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrderQueries';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import type { TableActionItem } from '@/ui/table-actions-menu';
 import { TableActionsMenu } from '@/ui/table-actions-menu';
@@ -23,6 +25,9 @@ type PurchaseOrdersTableProps = {
   decimals: number;
   formatDateTime: (value: string | Date | null | undefined) => string;
   getActionItems: (po: PurchaseOrder) => TableActionItem[];
+  sortBy?: 'poNumber' | 'subject' | 'status' | 'total' | 'createdAt' | undefined;
+  sortDir?: SortDirection | undefined;
+  onSortChange: (sortBy?: string | undefined, sortDir?: SortDirection | undefined) => void;
 };
 
 export function PurchaseOrdersTable({
@@ -37,16 +42,69 @@ export function PurchaseOrdersTable({
   decimals,
   formatDateTime,
   getActionItems,
+  sortBy,
+  sortDir,
+  onSortChange,
 }: PurchaseOrdersTableProps) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          {isColumnVisible('poNumber') && <TableHead>PO #</TableHead>}
-          {isColumnVisible('subject') && <TableHead>Subject</TableHead>}
-          {isColumnVisible('status') && <TableHead>Status</TableHead>}
-          {isColumnVisible('total') && <TableHead>Total</TableHead>}
-          {isColumnVisible('createdAt') && <TableHead>Created At</TableHead>}
+          {isColumnVisible('poNumber') && (
+            <TableHead>
+              <SortableTableHead
+                label="PO #"
+                columnKey="poNumber"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+            </TableHead>
+          )}
+          {isColumnVisible('subject') && (
+            <TableHead>
+              <SortableTableHead
+                label="Subject"
+                columnKey="subject"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+            </TableHead>
+          )}
+          {isColumnVisible('status') && (
+            <TableHead>
+              <SortableTableHead
+                label="Status"
+                columnKey="status"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+            </TableHead>
+          )}
+          {isColumnVisible('total') && (
+            <TableHead>
+              <SortableTableHead
+                label="Total"
+                columnKey="total"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+            </TableHead>
+          )}
+          {isColumnVisible('createdAt') && (
+            <TableHead>
+              <SortableTableHead
+                label="Created At"
+                columnKey="createdAt"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+              />
+            </TableHead>
+          )}
           {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
         </TableRow>
       </TableHeader>

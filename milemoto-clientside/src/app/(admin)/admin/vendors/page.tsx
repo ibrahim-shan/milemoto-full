@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { Edit, Globe, Link, Mail, MoreHorizontal, Phone, Plus, Search, Trash } from 'lucide-react';
+import { Edit, Globe, Link, Mail, MoreHorizontal, Phone, Plus, Trash } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { VendorDialog } from '@/features/admin/vendors/vendor-dialog';
+import { VendorsFilters } from '@/features/admin/vendors/vendors-filters';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useDeleteVendor, useGetVendors, type Vendor } from '@/hooks/useVendorQueries';
 import {
   AlertDialog,
@@ -28,34 +30,42 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { FilterConfig, GenericFilter } from '@/ui/generic-filter';
-import { Input } from '@/ui/input';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { StatusBadge } from '@/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+const VENDOR_COLUMNS = [
+  { id: 'name', label: 'Name', alwaysVisible: true },
+  { id: 'contact', label: 'Contact Info' },
+  { id: 'location', label: 'Location' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function VendorsPage() {
-  const columns = [
-    { id: 'name', label: 'Name' },
-    { id: 'contact', label: 'Contact Info' },
-    { id: 'location', label: 'Location' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = VENDOR_COLUMNS;
 
   // State
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'country' | 'status' | 'email' | undefined>(
+    undefined,
+  );
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
-  const [filters, setFilters] = useState<Record<string, string | number | string[] | undefined>>({
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
     status: '',
     country: [],
   });
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.vendors.columns',
   );
 
   const { data: locationData } = useGetVendors({
@@ -72,9 +82,12 @@ export default function VendorsPage() {
     ...(filters.country && (filters.country as string[]).length > 0
       ? { country: filters.country as string[] }
       : {}),
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
-  const locationOptions = React.useMemo(() => {
+  const locationOptions = useMemo(() => {
     const items =
       locationData?.items && locationData.items.length > 0
         ? locationData.items
@@ -90,24 +103,6 @@ export default function VendorsPage() {
       .sort((a, b) => a.localeCompare(b))
       .map(country => ({ label: country, value: country }));
   }, [data, locationData]);
-
-  const filterConfig: FilterConfig[] = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-      ],
-    },
-    {
-      key: 'country',
-      label: 'Location',
-      type: 'multiselect',
-      options: locationOptions,
-    },
-  ];
 
   const deleteMutation = useDeleteVendor();
 
@@ -135,7 +130,7 @@ export default function VendorsPage() {
 
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
 
@@ -143,6 +138,12 @@ export default function VendorsPage() {
     (count, column) => count + (isColumnVisible(column.id) ? 1 : 0),
     0,
   );
+
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -156,24 +157,18 @@ export default function VendorsPage() {
         <CardContent>
           {/* Toolbar area */}
           <div className="mb-6">
-            <GenericFilter
-              config={filterConfig}
+            <VendorsFilters
               filters={filters}
-              onFilterChange={setFilters}
-              search={
-                <div className="relative max-w-sm flex-1">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-                  <Input
-                    placeholder="Search vendors..."
-                    className="pl-9"
-                    value={search}
-                    onChange={e => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                  />
-                </div>
-              }
+              onFilterChange={nextFilters => {
+                setFilters(nextFilters);
+                setPage(1);
+              }}
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
+              locationOptions={locationOptions}
               actions={
                 <div className="flex items-center gap-2">
                   <ColumnVisibilityMenu
@@ -200,10 +195,50 @@ export default function VendorsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('name') && <TableHead>Name</TableHead>}
-                {isColumnVisible('contact') && <TableHead>Contact Info</TableHead>}
-                {isColumnVisible('location') && <TableHead>Location</TableHead>}
-                {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                {isColumnVisible('name') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Name"
+                      columnKey="name"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('contact') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Contact Info"
+                      columnKey="email"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('location') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Location"
+                      columnKey="country"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('status') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
                 {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -414,3 +449,5 @@ export default function VendorsPage() {
     </PermissionGuard>
   );
 }
+
+

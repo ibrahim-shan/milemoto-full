@@ -9,6 +9,8 @@ import {
   UpdateFeatureTogglesSettings,
   UpdateStockDisplaySettings,
   UpdateTaxPolicySettings,
+  UpdateOrderRequestPolicySettings,
+  UpdateInvoicePolicySettings,
 } from './helpers/siteSettings.helpers.js';
 import * as siteSettingsService from '../../services/siteSettings.service.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -202,6 +204,60 @@ router.put(
   asyncHandler(async (req, res) => {
     const body = UpdateTaxPolicySettings.parse(req.body);
     const updated = await siteSettingsService.updateTaxPolicySettings(body);
+    res.json(updated);
+  })
+);
+
+/**
+ * GET /api/v1/admin/site-settings/order-request-policy
+ * Get order request policy settings
+ */
+router.get(
+  '/order-request-policy',
+  requirePermission('settings.read'),
+  asyncHandler(async (_req, res) => {
+    const settings = await siteSettingsService.getOrderRequestPolicySettings();
+    res.json(settings);
+  })
+);
+
+/**
+ * PUT /api/v1/admin/site-settings/order-request-policy
+ * Update order request policy settings
+ */
+router.put(
+  '/order-request-policy',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
+    const body = UpdateOrderRequestPolicySettings.parse(req.body);
+    const updated = await siteSettingsService.updateOrderRequestPolicySettings(body);
+    res.json(updated);
+  })
+);
+
+/**
+ * GET /api/v1/admin/site-settings/invoice-policy
+ * Get invoice policy settings
+ */
+router.get(
+  '/invoice-policy',
+  requirePermission('settings.read'),
+  asyncHandler(async (_req, res) => {
+    const settings = await siteSettingsService.getInvoicePolicySettings();
+    res.json(settings);
+  })
+);
+
+/**
+ * PUT /api/v1/admin/site-settings/invoice-policy
+ * Update invoice policy settings
+ */
+router.put(
+  '/invoice-policy',
+  requirePermission('settings.manage'),
+  asyncHandler(async (req, res) => {
+    const body = UpdateInvoicePolicySettings.parse(req.body);
+    const updated = await siteSettingsService.updateInvoicePolicySettings(body);
     res.json(updated);
   })
 );

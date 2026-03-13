@@ -1,11 +1,20 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 
 import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/useAuth';
 import * as wishlistApi from '@/lib/wishlist';
+import type { WishlistItemResponse } from '@/types';
 
 export type WishlistItem = {
   href: string;
@@ -13,16 +22,23 @@ export type WishlistItem = {
   imageSrc: string;
   imageAlt: string;
   priceMinor: number;
+  isAvailable: boolean;
+  unavailableReason?: 'inactive' | 'unavailable' | null;
   addedAt: string;
 };
+
+type WishlistItemInput = Pick<
+  WishlistItem,
+  'href' | 'title' | 'imageSrc' | 'imageAlt' | 'priceMinor'
+>;
 
 type WishlistContextValue = {
   items: WishlistItem[];
   count: number;
   isFavorite: (href: string) => boolean;
-  addItem: (item: Omit<WishlistItem, 'addedAt'>) => void;
+  addItem: (item: WishlistItemInput) => void;
   removeItem: (href: string) => void;
-  toggleItem: (item: Omit<WishlistItem, 'addedAt'>) => void;
+  toggleItem: (item: WishlistItemInput) => void;
   clear: () => void;
 };
 
@@ -35,7 +51,7 @@ function parseStoredWishlist(raw: string | null): WishlistItem[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is WishlistItem => {
+    const valid = parsed.filter((item): item is WishlistItem => {
       if (!item || typeof item !== 'object') return false;
       const candidate = item as Record<string, unknown>;
       return (
@@ -47,9 +63,31 @@ function parseStoredWishlist(raw: string | null): WishlistItem[] {
         typeof candidate.addedAt === 'string'
       );
     });
+    return valid.map(item => ({
+      ...item,
+      isAvailable: typeof item.isAvailable === 'boolean' ? item.isAvailable : true,
+      unavailableReason:
+        item.unavailableReason === 'inactive' || item.unavailableReason === 'unavailable'
+          ? item.unavailableReason
+          : null,
+    }));
   } catch {
     return [];
   }
+}
+
+function mapServerWishlistItem(item: WishlistItemResponse): WishlistItem {
+  const isAvailable = Boolean(item.isActive && item.hasActiveVariant);
+  return {
+    href: `/product/${item.productSlug}`,
+    title: item.productName,
+    imageSrc: item.imageSrc ?? '',
+    imageAlt: item.productName,
+    priceMinor: Math.round(Number(item.price) * 100),
+    isAvailable,
+    unavailableReason: item.unavailableReason ?? null,
+    addedAt: item.addedAt,
+  };
 }
 
 export function WishlistProvider({ children }: PropsWithChildren) {
@@ -115,16 +153,7 @@ export function WishlistProvider({ children }: PropsWithChildren) {
 
         const server = await wishlistApi.getWishlist();
         if (cancelled) return;
-        setItems(
-          server.items.map(item => ({
-            href: `/product/${item.productSlug}`,
-            title: item.productName,
-            imageSrc: item.imageSrc ?? '',
-            imageAlt: item.productName,
-            priceMinor: Math.round(Number(item.price) * 100),
-            addedAt: item.addedAt,
-          })),
-        );
+        setItems(server.items.map(mapServerWishlistItem));
       } catch {
         // keep local items if server sync fails
       }
@@ -139,23 +168,14 @@ export function WishlistProvider({ children }: PropsWithChildren) {
   const value = useMemo<WishlistContextValue>(() => {
     const isFavorite = (href: string) => items.some(item => item.href === href);
 
-    const addItem = (item: Omit<WishlistItem, 'addedAt'>) => {
+    const addItem = (item: WishlistItemInput) => {
       if (isAuthenticated) {
         const slug = item.href.match(/^\/product\/(.+)$/)?.[1];
         if (!slug) return;
         void wishlistApi
           .addWishlistItem(slug)
           .then(server => {
-            setItems(
-              server.items.map(entry => ({
-                href: `/product/${entry.productSlug}`,
-                title: entry.productName,
-                imageSrc: entry.imageSrc ?? '',
-                imageAlt: entry.productName,
-                priceMinor: Math.round(Number(entry.price) * 100),
-                addedAt: entry.addedAt,
-              })),
-            );
+            setItems(server.items.map(mapServerWishlistItem));
             toast.success('Added to favorites');
           })
           .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to add favorite'));
@@ -165,7 +185,11 @@ export function WishlistProvider({ children }: PropsWithChildren) {
       let added = false;
       setItems(prev => {
         if (prev.some(existing => existing.href === item.href)) return prev;
-        const next: WishlistItem = { ...item, addedAt: new Date().toISOString() };
+        const next: WishlistItem = {
+          ...item,
+          isAvailable: true,
+          addedAt: new Date().toISOString(),
+        };
         added = true;
         return [next, ...prev];
       });
@@ -179,20 +203,11 @@ export function WishlistProvider({ children }: PropsWithChildren) {
         void wishlistApi
           .removeWishlistItemBySlug(slug)
           .then(server => {
-            setItems(
-              server.items.map(entry => ({
-                href: `/product/${entry.productSlug}`,
-                title: entry.productName,
-                imageSrc: entry.imageSrc ?? '',
-                imageAlt: entry.productName,
-                priceMinor: Math.round(Number(entry.price) * 100),
-                addedAt: entry.addedAt,
-              })),
-            );
+            setItems(server.items.map(mapServerWishlistItem));
             toast.success('Removed from favorites');
           })
           .catch(err =>
-            toast.error(err instanceof Error ? err.message : 'Failed to remove favorite')
+            toast.error(err instanceof Error ? err.message : 'Failed to remove favorite'),
           );
         return;
       }
@@ -206,7 +221,7 @@ export function WishlistProvider({ children }: PropsWithChildren) {
       if (removed) toast.success('Removed from favorites');
     };
 
-    const toggleItem = (item: Omit<WishlistItem, 'addedAt'>) => {
+    const toggleItem = (item: WishlistItemInput) => {
       if (isFavorite(item.href)) {
         removeItem(item.href);
         return;
@@ -219,18 +234,11 @@ export function WishlistProvider({ children }: PropsWithChildren) {
         void wishlistApi
           .clearWishlist()
           .then(server => {
-            setItems(
-              server.items.map(entry => ({
-                href: `/product/${entry.productSlug}`,
-                title: entry.productName,
-                imageSrc: entry.imageSrc ?? '',
-                imageAlt: entry.productName,
-                priceMinor: Math.round(Number(entry.price) * 100),
-                addedAt: entry.addedAt,
-              })),
-            );
+            setItems(server.items.map(mapServerWishlistItem));
           })
-          .catch(err => toast.error(err instanceof Error ? err.message : 'Failed to clear favorites'));
+          .catch(err =>
+            toast.error(err instanceof Error ? err.message : 'Failed to clear favorites'),
+          );
         return;
       }
       setItems([]);

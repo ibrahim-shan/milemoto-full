@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+
 import { Heart } from 'lucide-react';
 
 import { Breadcrumbs } from '@/features/navigation/Breadcrumbs';
 import { BuyActions } from '@/features/product/components/BuyActions';
 import { ProductGallery } from '@/features/product/components/ProductGallery';
+import { ProductReviewsSection } from '@/features/product/components/ProductReviewsSection';
 import { ProductTabs } from '@/features/product/components/ProductTabs';
 import { useWishlist } from '@/features/wishlist/wishlist-context';
 import { formatUSD } from '@/lib/formatPrice';
@@ -106,7 +108,11 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
               <h1 className="text-2xl font-bold tracking-tight">{product.name}</h1>
               <button
                 type="button"
-                aria-label={favorite ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
+                aria-label={
+                  favorite
+                    ? `Remove ${product.name} from favorites`
+                    : `Add ${product.name} to favorites`
+                }
                 title={favorite ? 'Remove from favorites' : 'Add to favorites'}
                 onClick={() =>
                   toggleItem({
@@ -169,9 +175,7 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
               stock={stock}
               slug={product.slug}
               title={product.name}
-              {...(product.stockDisplayMode
-                ? { stockDisplayMode: product.stockDisplayMode }
-                : {})}
+              {...(product.stockDisplayMode ? { stockDisplayMode: product.stockDisplayMode } : {})}
               {...(product.lowStockThreshold !== undefined
                 ? { lowStockThreshold: product.lowStockThreshold }
                 : {})}
@@ -271,6 +275,12 @@ export function ProductClient({ product }: { product: StorefrontProductDetail })
                 ]
               : []),
           ]}
+        />
+
+        <ProductReviewsSection
+          productName={product.name}
+          productSlug={product.slug}
+          productId={product.id}
         />
       </section>
     </main>

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, like, lte, or, sql } from 'drizzle-orm';
 import { goodsreceiptlines, goodsreceipts, purchaseorders } from '@milemoto/types';
 import type { ListQueryDto } from '../../routes/admin/helpers/goodsReceipt.helpers.js';
 import { db } from '../../db/drizzle.js';
@@ -7,17 +7,50 @@ import { buildPaginatedResponse } from '../../utils/response.js';
 import { mapGoodsReceiptHeader, mapGoodsReceiptLine } from './shared.js';
 
 export async function listGoodsReceipts(params: ListQueryDto) {
-  const { page, limit, search, purchaseOrderId } = params;
+  const {
+    page,
+    limit,
+    search,
+    filterMode = 'all',
+    purchaseOrderId,
+    status,
+    dateFrom,
+    dateTo,
+    sortBy,
+    sortDir = 'desc',
+  } = params;
   const offset = (page - 1) * limit;
 
-  const filters = [
-    search
-      ? or(like(goodsreceipts.grnNumber, `%${search}%`), like(goodsreceipts.note, `%${search}%`))
-      : undefined,
+  const searchFilter = search
+    ? or(
+        like(goodsreceipts.grnNumber, `%${search}%`),
+        like(goodsreceipts.note, `%${search}%`),
+        like(purchaseorders.poNumber, `%${search}%`)
+      )
+    : undefined;
+  const optionalFilters = [
     purchaseOrderId ? eq(goodsreceipts.purchaseOrderId, purchaseOrderId) : undefined,
+    status ? eq(goodsreceipts.status, status) : undefined,
+    dateFrom ? gte(goodsreceipts.createdAt, new Date(dateFrom)) : undefined,
+    dateTo ? lte(goodsreceipts.createdAt, new Date(dateTo)) : undefined,
   ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
 
-  const where = filters.length ? and(...filters) : undefined;
+  const structuredFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, structuredFilter);
+  const receivedAtExpr = sql`coalesce(${goodsreceipts.postedAt}, ${goodsreceipts.createdAt})`;
+  const sortColumns = {
+    grnNumber: goodsreceipts.grnNumber,
+    poNumber: purchaseorders.poNumber,
+    status: goodsreceipts.status,
+    receivedAt: receivedAtExpr,
+  } as const;
+  const sortColumn = sortBy ? sortColumns[sortBy] : receivedAtExpr;
+  const orderExpr = sortDir === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
   const [countRows, rows] = await Promise.all([
     db
@@ -42,7 +75,7 @@ export async function listGoodsReceipts(params: ListQueryDto) {
       .from(goodsreceipts)
       .innerJoin(purchaseorders, eq(purchaseorders.id, goodsreceipts.purchaseOrderId))
       .where(where)
-      .orderBy(desc(goodsreceipts.postedAt))
+      .orderBy(orderExpr)
       .limit(limit)
       .offset(offset),
   ]);

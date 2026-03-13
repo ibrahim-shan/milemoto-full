@@ -2,6 +2,8 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   carts,
   cartitems,
+  couponredemptions,
+  coupons,
   orderitems,
   ordertaxlines,
   orders,
@@ -10,7 +12,6 @@ import {
   products,
   productvariants,
   stocklevels,
-  stockmovements,
   users,
 } from '@milemoto/types';
 import type { CheckoutSubmitDto, CheckoutSubmitResponse } from '@milemoto/types';
@@ -18,6 +19,7 @@ import { db } from '../../db/drizzle.js';
 import { httpError } from '../../utils/error.js';
 import { quoteCheckout } from './quote.js';
 import { calculateCheckoutTaxes } from './tax.js';
+import { resolveCouponForSubmit } from './coupon.js';
 
 type LockedStockRow = {
   id: number;
@@ -53,6 +55,38 @@ function generateOrderNumber() {
   return `ORD-${y}${m}${day}-${h}${min}${s}-${rand}`;
 }
 
+function throwSpecificQuoteError(errors: string[]) {
+  if (errors.includes('COUPON_EXPIRED')) {
+    throw httpError(400, 'CouponExpired', 'This coupon has expired');
+  }
+  if (errors.includes('COUPON_USAGE_LIMIT_REACHED')) {
+    throw httpError(400, 'CouponUsageLimitReached', 'Coupon usage limit reached');
+  }
+  if (errors.includes('COUPON_MIN_SUBTOTAL_NOT_MET')) {
+    throw httpError(
+      400,
+      'CouponMinSubtotalNotMet',
+      'Your cart subtotal does not meet this coupon minimum'
+    );
+  }
+  if (errors.includes('COUPON_NOT_STARTED')) {
+    throw httpError(400, 'CouponNotStarted', 'This coupon is not active yet');
+  }
+  if (errors.includes('COUPON_INVALID')) {
+    throw httpError(400, 'CouponInvalid', 'Coupon code is invalid or not applicable to this cart');
+  }
+  if (errors.includes('CART_EMPTY')) {
+    throw httpError(400, 'CartEmpty', 'Cart is empty');
+  }
+  if (errors.includes('CART_INVALID')) {
+    throw httpError(
+      400,
+      'CheckoutValidationFailed',
+      'Cart contains unavailable or out-of-stock items'
+    );
+  }
+}
+
 export async function submitCheckoutCod(
   userId: number,
   input: CheckoutSubmitDto
@@ -67,6 +101,7 @@ export async function submitCheckoutCod(
 
   const quote = await quoteCheckout(userId, input);
   if (!quote.canPlaceOrder) {
+    throwSpecificQuoteError(quote.errors ?? []);
     throw httpError(
       400,
       'CheckoutValidationFailed',
@@ -179,7 +214,13 @@ export async function submitCheckoutCod(
     });
 
     const subtotal = lineSnapshots.reduce((sum, l) => sum + l.lineTotal, 0);
-    const discountTotal = 0;
+    const resolvedCoupon = await resolveCouponForSubmit({
+      tx,
+      userId,
+      couponCode: input.couponCode ?? null,
+      subtotal,
+    });
+    const discountTotal = resolvedCoupon?.discountTotal ?? 0;
     const shippingTotal = 0;
     const tax = await calculateCheckoutTaxes({
       subtotal,
@@ -215,7 +256,7 @@ export async function submitCheckoutCod(
             taxTotal,
             grandTotal,
             shippingMethodCode: input.shippingMethodCode,
-            couponCode: input.couponCode ?? null,
+            couponCode: resolvedCoupon?.code ?? null,
             notes: input.notes ?? null,
             shippingFullName: input.shippingAddress.fullName,
             shippingPhone: input.shippingAddress.phone,
@@ -297,7 +338,24 @@ export async function submitCheckoutCod(
       actorUserId: userId,
     });
 
-    // Deduct stock from available rows. Prefer rows with highest available first.
+    if (resolvedCoupon) {
+      await tx.insert(couponredemptions).values({
+        couponId: resolvedCoupon.id,
+        userId,
+        orderId,
+        discountAmount: resolvedCoupon.discountTotal,
+      });
+      await tx
+        .update(coupons)
+        .set({
+          usedCount: sql`${coupons.usedCount} + 1`,
+          updatedAt: sql`CURRENT_TIMESTAMP`,
+        })
+        .where(eq(coupons.id, resolvedCoupon.id));
+    }
+
+    // Reserve stock (allocated) for pending confirmation orders.
+    // Physical deduction from onHand happens when order is marked as shipped.
     for (const line of lineSnapshots) {
       let remaining = line.quantity;
       const rows = [...(stockLocks.get(line.productVariantId) ?? [])].sort(
@@ -310,20 +368,13 @@ export async function submitCheckoutCod(
         if (available <= 0) continue;
 
         const take = Math.min(remaining, available);
-        const newOnHand = level.onHand - take;
-        await tx.update(stocklevels).set({ onHand: newOnHand }).where(eq(stocklevels.id, level.id));
-        await tx.insert(stockmovements).values({
-          productVariantId: line.productVariantId,
-          stockLocationId: level.stockLocationId,
-          performedByUserId: userId,
-          quantity: -take,
-          type: 'sale_shipment',
-          referenceType: 'customer_order',
-          referenceId: orderId,
-          note: `COD order ${orderNumber}`,
-        });
+        const nextAllocated = level.allocated + take;
+        await tx
+          .update(stocklevels)
+          .set({ allocated: nextAllocated })
+          .where(eq(stocklevels.id, level.id));
 
-        level.onHand = newOnHand;
+        level.allocated = nextAllocated;
         remaining -= take;
       }
 

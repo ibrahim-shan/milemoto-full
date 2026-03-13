@@ -2,16 +2,21 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 
-import { AdminOrderStatusBadge, formatAdminOrderStatus } from './order-status';
+import { AdminOrderStatusBadge } from './order-status';
 import { Eye } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
-import { fetchAdminOrders } from '@/lib/admin-orders';
-import type { AdminOrderListItem, AdminOrdersListResponse } from '@/types';
+import { OrderFilters } from '@/features/admin/orders/order-filters';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { fetchAdminOrderFilterOptions, fetchAdminOrders } from '@/lib/admin-orders';
+import type {
+  AdminOrderFilterOptionsResponse,
+  AdminOrderListItem,
+  AdminOrdersListResponse,
+} from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { ColumnVisibilityMenu } from '@/ui/column-visibility-menu';
-import { Input } from '@/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
+import { SortDirection, SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableActionsMenu } from '@/ui/table-actions-menu';
 import { TablePaginationFooter } from '@/ui/table-pagination-footer';
@@ -31,16 +36,6 @@ function formatDateTime(value: string) {
   return d.toLocaleString();
 }
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'pending_confirmation', label: formatAdminOrderStatus('pending_confirmation') },
-  { value: 'confirmed', label: formatAdminOrderStatus('confirmed') },
-  { value: 'processing', label: formatAdminOrderStatus('processing') },
-  { value: 'shipped', label: formatAdminOrderStatus('shipped') },
-  { value: 'delivered', label: formatAdminOrderStatus('delivered') },
-  { value: 'cancelled', label: formatAdminOrderStatus('cancelled') },
-];
-
 const ORDER_COLUMNS = [
   { id: 'order', label: 'Order', alwaysVisible: true },
   { id: 'customer', label: 'Customer' },
@@ -55,39 +50,70 @@ const ORDER_COLUMNS = [
 export function AdminOrdersListClient() {
   const [searchInput, setSearchInput] = useState('');
   const deferredSearch = useDeferredValue(searchInput.trim());
-  const [status, setStatus] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
-    customer: true,
-    status: true,
-    payment: true,
-    items: true,
-    placed: true,
-    total: true,
+  const [sortBy, setSortBy] = useState<
+    | 'orderNumber'
+    | 'customerName'
+    | 'status'
+    | 'paymentStatus'
+    | 'paymentMethod'
+    | 'itemCount'
+    | 'placedAt'
+    | 'grandTotal'
+    | 'createdAt'
+    | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
+    status: '',
+    paymentStatus: '',
+    paymentMethod: '',
+    dateFrom: '',
+    dateTo: '',
   });
+  const {
+    visibility: columnVisibility,
+    setVisibility: setColumnVisibility,
+    isColumnVisible,
+    visibleColumnCount,
+  } = useColumnVisibility(ORDER_COLUMNS, 'admin.orders.columns');
   const [data, setData] = useState<AdminOrdersListResponse | null>(null);
+  const [filterOptions, setFilterOptions] = useState<AdminOrderFilterOptionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset pagination when filters change
     setPage(1);
-  }, [deferredSearch, status]);
+  }, [deferredSearch, filters]);
 
   const query = useMemo(
     () => ({
       page,
       limit: pageSize,
       search: deferredSearch || undefined,
-      status: status === 'all' ? undefined : status,
+      ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
+      ...(filters.status ? { status: String(filters.status) } : {}),
+      ...(filters.paymentStatus ? { paymentStatus: String(filters.paymentStatus) } : {}),
+      ...(filters.paymentMethod ? { paymentMethod: String(filters.paymentMethod) } : {}),
+      ...(filters.dateFrom ? { dateFrom: String(filters.dateFrom) } : {}),
+      ...(filters.dateTo ? { dateTo: String(filters.dateTo) } : {}),
+      sortBy: sortBy || undefined,
+      sortDir: sortBy && sortDir ? sortDir : undefined,
     }),
-    [deferredSearch, page, pageSize, status],
+    [deferredSearch, filters, page, pageSize, sortBy, sortDir],
   );
+
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting request UI state before starting fetch
     setLoading(true);
     setError(null);
 
@@ -107,13 +133,32 @@ export function AdminOrdersListClient() {
     };
   }, [query]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchAdminOrderFilterOptions()
+      .then(result => {
+        if (!cancelled) {
+          setFilterOptions(result);
+          setFilterOptionsError(null);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setFilterOptionsError(
+            (err as { message?: string })?.message || 'Failed to load order filter options',
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const items = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
   const totalPages = data?.totalPages ?? 1;
-  const isColumnVisible = (id: string) => columnVisibility[id] !== false;
-  const visibleColumnCount = ORDER_COLUMNS.filter(
-    col => ('alwaysVisible' in col && col.alwaysVisible) || isColumnVisible(col.id),
-  ).length;
 
   return (
     <PermissionGuard requiredPermission="orders.read">
@@ -122,58 +167,109 @@ export function AdminOrdersListClient() {
           <CardTitle>Orders</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex w-full flex-col gap-3 md:flex-row md:items-center">
-              <div className="w-full md:max-w-sm">
-                <Input
-                  placeholder="Search by order #, customer, phone"
-                  value={searchInput}
-                  onChange={e => setSearchInput(e.target.value)}
+          <div className="mb-4">
+            <OrderFilters
+              filters={filters}
+              onFilterChange={setFilters}
+              search={searchInput}
+              onSearchChange={setSearchInput}
+              paymentMethodOptions={(filterOptions?.paymentMethods ?? []).map(value => ({
+                label: value,
+                value,
+              }))}
+              actions={
+                <ColumnVisibilityMenu
+                  columns={ORDER_COLUMNS}
+                  visibility={columnVisibility}
+                  onToggle={(columnId, visible) =>
+                    setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
+                  }
                 />
-              </div>
-              <div className="w-full md:w-56">
-                <Select
-                  value={status}
-                  onValueChange={setStatus}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map(option => (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                      >
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <ColumnVisibilityMenu
-                columns={ORDER_COLUMNS}
-                visibility={columnVisibility}
-                onToggle={(columnId, visible) =>
-                  setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
-                }
-              />
-            </div>
+              }
+            />
+            {filterOptionsError ? (
+              <div className="text-muted-foreground mt-2 text-xs">{filterOptionsError}</div>
+            ) : null}
           </div>
 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order</TableHead>
-                {isColumnVisible('customer') ? <TableHead>Customer</TableHead> : null}
-                {isColumnVisible('status') ? <TableHead>Status</TableHead> : null}
-                {isColumnVisible('payment') ? <TableHead>Payment</TableHead> : null}
-                {isColumnVisible('items') ? <TableHead>Items</TableHead> : null}
-                {isColumnVisible('placed') ? <TableHead>Placed</TableHead> : null}
+                <TableHead>
+                  <SortableTableHead
+                    label="Order"
+                    columnKey="orderNumber"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                </TableHead>
+                {isColumnVisible('customer') ? (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Customer"
+                      columnKey="customerName"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                ) : null}
+                {isColumnVisible('status') ? (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                ) : null}
+                {isColumnVisible('payment') ? (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Payment"
+                      columnKey="paymentStatus"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                ) : null}
+                {isColumnVisible('items') ? (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Items"
+                      columnKey="itemCount"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                ) : null}
+                {isColumnVisible('placed') ? (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Placed"
+                      columnKey="placedAt"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                ) : null}
                 {isColumnVisible('total') ? (
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">
+                    <SortableTableHead
+                      label="Total"
+                      columnKey="grandTotal"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                      className="justify-end"
+                    />
+                  </TableHead>
                 ) : null}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>

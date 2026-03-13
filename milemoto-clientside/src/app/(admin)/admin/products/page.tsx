@@ -30,6 +30,9 @@ export default function ProductsPage() {
     expandedRows,
     onToggleRow,
     getActionItems,
+    sortBy,
+    sortDir,
+    onSortChange,
     stats,
     page,
     pageSize,
@@ -82,6 +85,9 @@ export default function ProductsPage() {
             onToggleRow={onToggleRow}
             search={search}
             getActionItems={getActionItems}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSortChange={onSortChange}
           />
 
           <TablePaginationFooter

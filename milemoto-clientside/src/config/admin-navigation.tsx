@@ -62,6 +62,12 @@ export const adminNavigation: NavConfigItem[] = [
         perm: 'orders.read',
       },
       {
+        href: '/admin/order-requests',
+        label: 'Order Requests',
+        icon: ClipboardList,
+        perm: 'orders.read',
+      },
+      {
         href: '/admin/invoices',
         label: 'Invoices',
         icon: FileText,

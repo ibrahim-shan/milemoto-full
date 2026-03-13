@@ -5,7 +5,7 @@ export type ProductColumn = {
 };
 
 export const PRODUCT_COLUMNS: ProductColumn[] = [
-  { id: 'id', label: 'ID' },
+  { id: 'id', label: 'ID', alwaysVisible: true },
   { id: 'name', label: 'Name' },
   { id: 'brand', label: 'Brand' },
   { id: 'category', label: 'Category' },
@@ -17,10 +17,15 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: 'actions', label: 'Actions', alwaysVisible: true },
 ];
 
-export type ProductFilters = Record<string, string | number | string[] | undefined>;
+export type ProductFilters = Record<string, string | number | boolean | string[] | undefined>;
 
 export const createDefaultProductFilters = (): ProductFilters => ({
+  filterMode: 'all',
+  sku: '',
+  priceMin: '',
+  priceMax: '',
   brandId: [],
+  vendorId: [],
   categoryId: [],
   subCategoryId: [],
   gradeId: [],

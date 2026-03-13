@@ -1,4 +1,4 @@
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm';
 import { collectionProducts, collections, products, productvariants } from '@milemoto/types';
 import type { CollectionListQueryDto, CollectionMatchType, CollectionRule } from '@milemoto/types';
 import { db } from '../../db/drizzle.js';
@@ -8,18 +8,40 @@ import { mapCollection } from './shared.js';
 import { buildProductContext, evaluateRules } from './rules.js';
 
 export async function listCollections(query: CollectionListQueryDto) {
-  const { page, limit, status, type, search } = query;
+  const {
+    page,
+    limit,
+    status,
+    type,
+    search,
+    filterMode = 'all',
+    sortBy = 'createdAt',
+    sortDir = 'asc',
+  } = query;
   const offset = (page - 1) * limit;
 
-  const filters = [
-    status ? eq(collections.status, status) : undefined,
-    type ? eq(collections.type, type) : undefined,
-    search
-      ? or(like(collections.name, `%${search}%`), like(collections.slug, `%${search}%`))
-      : undefined,
-  ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
-
-  const where = filters.length ? and(...filters) : undefined;
+  const searchFilter = search
+    ? or(like(collections.name, `%${search}%`), like(collections.slug, `%${search}%`))
+    : undefined;
+  const optionalFilters = [status ? eq(collections.status, status) : undefined, type ? eq(collections.type, type) : undefined].filter(Boolean);
+  const structuredFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, structuredFilter);
+  const sortColumn =
+    sortBy === 'name'
+      ? collections.name
+      : sortBy === 'type'
+        ? collections.type
+        : sortBy === 'matchType'
+          ? collections.matchType
+          : sortBy === 'status'
+            ? collections.status
+            : collections.createdAt;
+  const orderByClause = sortDir === 'desc' ? desc(sortColumn) : asc(sortColumn);
 
   const [items, countRows] = await Promise.all([
     db
@@ -36,7 +58,7 @@ export async function listCollections(query: CollectionListQueryDto) {
       })
       .from(collections)
       .where(where)
-      .orderBy(asc(collections.createdAt))
+      .orderBy(orderByClause, asc(collections.id))
       .limit(limit)
       .offset(offset),
     db

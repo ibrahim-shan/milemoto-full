@@ -15,7 +15,13 @@ export type GoodsReceiptListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  filterMode?: 'all' | 'any';
   purchaseOrderId?: number;
+  status?: 'draft' | 'posted';
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: 'grnNumber' | 'poNumber' | 'status' | 'receivedAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 export const goodsReceiptKeys = {

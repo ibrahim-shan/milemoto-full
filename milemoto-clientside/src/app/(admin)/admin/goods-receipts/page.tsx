@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-import { Eye, MoreHorizontal, Search } from 'lucide-react';
+import { Eye, MoreHorizontal } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
+import { GoodsReceiptFilters } from '@/features/admin/goods-receipts/goods-receipt-filters';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useGetGoodsReceipts } from '@/hooks/useGoodsReceiptQueries';
 import { useLocalizationFormat } from '@/hooks/useLocalizationFormat';
 import { Button } from '@/ui/button';
@@ -19,32 +21,52 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { Input } from '@/ui/input';
+import type { SortDirection } from '@/ui/sortable-table-head';
+import { SortableTableHead } from '@/ui/sortable-table-head';
 import { StatusBadge } from '@/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+const GOODS_RECEIPT_COLUMNS = [
+  { id: 'grnNumber', label: 'GRN #', alwaysVisible: true },
+  { id: 'poNumber', label: 'PO #' },
+  { id: 'status', label: 'Status' },
+  { id: 'receivedAt', label: 'Received At' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function GoodsReceiptsPage() {
-  const columns = [
-    { id: 'grnNumber', label: 'GRN #' },
-    { id: 'poNumber', label: 'PO #' },
-    { id: 'status', label: 'Status' },
-    { id: 'receivedAt', label: 'Received At' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = GOODS_RECEIPT_COLUMNS;
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'grnNumber' | 'poNumber' | 'status' | 'receivedAt' | undefined>(
+    undefined,
+  );
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
+    status: '',
+    dateFrom: '',
+    dateTo: '',
+  });
   const { formatDateTime } = useLocalizationFormat();
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.goods-receipts.columns',
   );
 
   const { data, isLoading, isError, refetch } = useGetGoodsReceipts({
     page,
     limit: pageSize,
     ...(search ? { search } : {}),
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
+    ...(filters.status ? { status: filters.status as 'draft' | 'posted' } : {}),
+    ...(filters.dateFrom ? { dateFrom: String(filters.dateFrom) } : {}),
+    ...(filters.dateTo ? { dateTo: String(filters.dateTo) } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   });
 
   const items = data?.items ?? [];
@@ -52,13 +74,18 @@ export default function GoodsReceiptsPage() {
   const totalPages = data?.totalPages ?? Math.ceil((totalCount || 0) / pageSize);
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
   const visibleColumnCount = columns.reduce(
     (count, column) => count + (isColumnVisible(column.id) ? 1 : 0),
     0,
   );
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   return (
     <PermissionGuard requiredPermission="goods_receipts.read">
@@ -67,24 +94,26 @@ export default function GoodsReceiptsPage() {
           <CardTitle>Goods Receipts</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div className="relative max-w-sm flex-1">
-              <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-              <Input
-                placeholder="Search goods receipts..."
-                className="pl-9"
-                value={search}
-                onChange={e => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-            <ColumnVisibilityMenu
-              columns={columns}
-              visibility={columnVisibility}
-              onToggle={(columnId, visible) =>
-                setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
+          <div className="mb-6">
+            <GoodsReceiptFilters
+              filters={filters}
+              onFilterChange={nextFilters => {
+                setFilters(nextFilters);
+                setPage(1);
+              }}
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
+              actions={
+                <ColumnVisibilityMenu
+                  columns={columns}
+                  visibility={columnVisibility}
+                  onToggle={(columnId, visible) =>
+                    setColumnVisibility(prev => ({ ...prev, [columnId]: visible }))
+                  }
+                />
               }
             />
           </div>
@@ -92,10 +121,50 @@ export default function GoodsReceiptsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('grnNumber') && <TableHead>GRN #</TableHead>}
-                {isColumnVisible('poNumber') && <TableHead>PO #</TableHead>}
-                {isColumnVisible('status') && <TableHead>Status</TableHead>}
-                {isColumnVisible('receivedAt') && <TableHead>Received At</TableHead>}
+                {isColumnVisible('grnNumber') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="GRN #"
+                      columnKey="grnNumber"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('poNumber') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="PO #"
+                      columnKey="poNumber"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('status') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('receivedAt') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Received At"
+                      columnKey="receivedAt"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
                 {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>

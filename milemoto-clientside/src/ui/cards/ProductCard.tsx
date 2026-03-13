@@ -1,7 +1,7 @@
 // src/components/cards/ProductCard.tsx
 'use client';
 
-import { memo } from 'react';
+import { memo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 
 import { motion } from 'framer-motion';
@@ -14,14 +14,18 @@ import { formatUSD } from '@/lib/formatPrice';
 import { IMAGE_PLACEHOLDERS } from '@/lib/image-placeholders';
 import { Button } from '@/ui/button';
 import { FallbackImage } from '@/ui/fallback-image';
+import { StatusBadge } from '@/ui/status-badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/tooltip';
 
 export type ProductCardProps = {
   title: string;
   href: string;
+  viewHref?: string;
+  favoriteKeyHref?: string;
   imageSrc: string;
   imageAlt: string;
   priceMinor: number;
+  outOfStock?: boolean;
   productSlug?: string;
   quickAddVariantId?: number;
   quickAddStock?: number;
@@ -37,9 +41,12 @@ export type ProductCardProps = {
 function ProductCardInner({
   title,
   href,
+  viewHref = href,
+  favoriteKeyHref = href,
   imageSrc,
   imageAlt,
   priceMinor,
+  outOfStock = false,
   productSlug,
   quickAddVariantId,
   quickAddStock,
@@ -47,33 +54,33 @@ function ProductCardInner({
   imgPriority = false,
   imgLoading = 'lazy',
   imgBlurDataURL,
+  onAdd,
   locale = 'en-US',
 }: ProductCardProps) {
+  const isHydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const price = formatUSD(priceMinor, { locale });
   const { addItem, items } = useCart();
   const { isFavorite, toggleItem } = useWishlist();
-  const favorite = isFavorite(href);
+  const favorite = isFavorite(favoriteKeyHref);
   const normalizedQuickAddStock =
-    quickAddStock === undefined || quickAddStock === null
-      ? undefined
-      : Number(quickAddStock);
+    quickAddStock === undefined || quickAddStock === null ? undefined : Number(quickAddStock);
   const quickAddStockInt =
     normalizedQuickAddStock !== undefined && Number.isFinite(normalizedQuickAddStock)
       ? Math.max(0, Math.floor(normalizedQuickAddStock))
       : undefined;
   const currentCartQty =
-    quickAddVariantId != null
+    isHydrated && quickAddVariantId != null
       ? (items.find(it => it.productVariantId === quickAddVariantId)?.qty ?? 0)
       : 0;
   const hasQuickAdd = quickAddVariantId != null && !!productSlug;
   const quickAddReachedMax =
-    hasQuickAdd &&
-    quickAddStockInt !== undefined &&
-    quickAddStockInt <= currentCartQty;
+    hasQuickAdd && quickAddStockInt !== undefined && quickAddStockInt <= currentCartQty;
   const quickAddDisabled =
-    !hasQuickAdd ||
-    (quickAddStockInt !== undefined && quickAddStockInt <= 0) ||
-    quickAddReachedMax;
+    !hasQuickAdd || (quickAddStockInt !== undefined && quickAddStockInt <= 0) || quickAddReachedMax;
   const quickAddTooltip = quickAddDisabled
     ? quickAddStockInt !== undefined && quickAddStockInt <= 0
       ? 'Out of stock'
@@ -103,6 +110,14 @@ function ProductCardInner({
           className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           {...(imgBlurDataURL ? { placeholder: 'blur' as const, blurDataURL: imgBlurDataURL } : {})}
         />
+        {outOfStock ? (
+          <StatusBadge
+            variant="error"
+            className="absolute left-2 top-2 z-20 uppercase tracking-wide"
+          >
+            Out of Stock
+          </StatusBadge>
+        ) : null}
 
         <div className="absolute right-2 top-2 z-20 flex items-center gap-2">
           {hasQuickAdd ? (
@@ -133,7 +148,6 @@ function ProductCardInner({
                           slug: productSlug,
                           title,
                           imageSrc,
-                          imageAlt,
                           priceMinor,
                           productVariantId: quickAddVariantId,
                           ...(quickAddStockInt !== undefined ? { stock: quickAddStockInt } : {}),
@@ -162,12 +176,14 @@ function ProductCardInner({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label={favorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
+                  aria-label={
+                    favorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`
+                  }
                   title={favorite ? 'Remove from favorites' : 'Add to favorites'}
                   onClick={event => {
                     event.preventDefault();
                     event.stopPropagation();
-                    toggleItem({ href, title, imageSrc, imageAlt, priceMinor });
+                    toggleItem({ href: favoriteKeyHref, title, imageSrc, imageAlt, priceMinor });
                   }}
                   className={`inline-flex h-9 w-9 items-center justify-center rounded-full border shadow-sm backdrop-blur transition-colors ${
                     favorite
@@ -191,7 +207,7 @@ function ProductCardInner({
         {variant === 'overlay' && (
           <div className="absolute inset-0 z-10 flex items-center justify-center opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
             <Button
-              href={href}
+              href={viewHref}
               size="sm"
               variant="solid"
               justify="center"
@@ -211,7 +227,7 @@ function ProductCardInner({
 
       <div className="mt-4">
         <Link
-          href={href}
+          href={viewHref}
           prefetch={false}
           className="text-foreground/90 focus-visible:ring-ring rounded text-sm hover:underline focus-visible:outline-none focus-visible:ring-2"
           aria-label={title}
@@ -242,7 +258,7 @@ function ProductCardInner({
         {variant === 'inline' && (
           <div className="mt-2">
             <Button
-              href={href}
+              href={viewHref}
               variant="solid"
               size="sm"
               justify="center"

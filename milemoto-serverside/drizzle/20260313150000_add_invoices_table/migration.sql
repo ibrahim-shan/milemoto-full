@@ -1,0 +1,27 @@
+CREATE TABLE `invoices` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `invoiceNumber` varchar(50) NOT NULL,
+  `orderId` bigint unsigned NOT NULL,
+  `status` enum('draft','issued','paid','partially_paid','void') NOT NULL DEFAULT 'issued',
+  `currency` char(3) NOT NULL,
+  `subtotal` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `discountTotal` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `shippingTotal` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `taxTotal` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `grandTotal` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `issuedAt` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `dueAt` datetime NULL,
+  `paidAt` datetime NULL,
+  `note` varchar(1000) NULL,
+  `createdByUserId` bigint unsigned NULL,
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniqInvoiceNumber` (`invoiceNumber`),
+  UNIQUE KEY `uniqInvoiceOrder` (`orderId`),
+  KEY `idxInvoicesStatusIssuedAt` (`status`, `issuedAt`),
+  KEY `idxInvoicesCreatedAt` (`createdAt`),
+  CONSTRAINT `fkInvoicesOrder` FOREIGN KEY (`orderId`) REFERENCES `orders` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fkInvoicesCreatedBy` FOREIGN KEY (`createdByUserId`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
+);
+

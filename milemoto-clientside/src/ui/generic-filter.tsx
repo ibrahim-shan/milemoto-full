@@ -1,18 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, Filter, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, Filter, X } from 'lucide-react';
 
 import { Button } from '@/ui/button';
+import { Calendar } from '@/ui/calendar';
+import { Checkbox } from '@/ui/checkbox';
 import { GeneralCombobox, MultiSelectCombobox } from '@/ui/combobox';
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover';
 import { Separator } from '@/ui/separator';
 import { StatusBadge } from '@/ui/status-badge';
+import { Switch } from '@/ui/switch';     
 
-export type FilterType = 'select' | 'multiselect' | 'range' | 'date-range';
+export type FilterType = 'select' | 'multiselect' | 'range' | 'date-range' | 'boolean' | 'text';
 
 export type FilterOption = {
   label: string;
@@ -23,6 +27,8 @@ export type FilterConfig = {
   key: string; // Field name in filter state
   label: string;
   type: FilterType;
+  fullWidth?: boolean;
+  placeholder?: string;
   options?: FilterOption[]; // For select/multiselect
   minKey?: string; // For range (e.g., 'ordersMin')
   maxKey?: string; // For range (e.g., 'ordersMax')
@@ -32,38 +38,93 @@ export type FilterConfig = {
 
 type GenericFilterProps = {
   config: FilterConfig[];
-  filters: Record<string, string | number | string[] | undefined>;
-  onFilterChange: (filters: Record<string, string | number | string[] | undefined>) => void;
+  filters: Record<string, string | number | boolean | string[] | undefined>;
+  draftFilters?: Record<string, string | number | boolean | string[] | undefined>;
+  onDraftFiltersChange?: (
+    filters: Record<string, string | number | boolean | string[] | undefined>,
+  ) => void;
+  onFilterChange: (
+    filters: Record<string, string | number | boolean | string[] | undefined>,
+  ) => void;
   search?: React.ReactNode;
   actions?: React.ReactNode;
 };
 
+function parseDateOnly(value: unknown): Date | undefined {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [year = NaN, month = NaN, day = NaN] = value.split('-').map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return undefined;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return undefined;
+  }
+  return date;
+}
+
+function toDateOnlyValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function GenericFilter({
   config,
   filters,
+  draftFilters,
+  onDraftFiltersChange,
   onFilterChange,
   search,
   actions,
 }: GenericFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [localFilters, setLocalFilters] = useState(filters);
+  const [internalLocalFilters, setInternalLocalFilters] = useState(filters);
+  const isDraftControlled = draftFilters !== undefined && onDraftFiltersChange !== undefined;
+  const localFilters = isDraftControlled ? draftFilters : internalLocalFilters;
+  const setLocalFilters = (
+    next:
+      | Record<string, string | number | boolean | string[] | undefined>
+      | ((
+          previous: Record<string, string | number | boolean | string[] | undefined>,
+        ) => Record<string, string | number | boolean | string[] | undefined>),
+  ) => {
+    if (isDraftControlled) {
+      const resolved = typeof next === 'function' ? next(localFilters) : next;
+      onDraftFiltersChange(resolved);
+      return;
+    }
 
-  // Sync local filters when prop changes (if needed, but usually we want to keep local state until applied)
-  // However, if we want to support external resets, we might need a useEffect.
-  // For now, let's just initialize.
+    setInternalLocalFilters(previous => (typeof next === 'function' ? next(previous) : next));
+  };
+
+  useEffect(() => {
+    if (!isDraftControlled) {
+      setInternalLocalFilters(filters);
+    }
+  }, [filters, isDraftControlled]);
 
   const activeFilterCount = config.reduce((count, item) => {
+    if (item.key === 'filterMode') {
+      return count;
+    }
     if (item.type === 'multiselect') {
-      return count + ((filters[item.key] as string[])?.length > 0 ? 1 : 0);
+      return count + ((localFilters[item.key] as string[])?.length > 0 ? 1 : 0);
     }
     if (item.type === 'select') {
-      return count + (filters[item.key] ? 1 : 0);
+      return count + (localFilters[item.key] ? 1 : 0);
     }
     if (item.type === 'range') {
-      return count + (filters[item.minKey!] || filters[item.maxKey!] ? 1 : 0);
+      return count + (localFilters[item.minKey!] || localFilters[item.maxKey!] ? 1 : 0);
     }
     if (item.type === 'date-range') {
-      return count + (filters[item.startKey!] || filters[item.endKey!] ? 1 : 0);
+      return count + (localFilters[item.startKey!] || localFilters[item.endKey!] ? 1 : 0);
+    }
+    if (item.type === 'boolean') {
+      return count + (localFilters[item.key] === true ? 1 : 0);
+    }
+    if (item.type === 'text') {
+      const value = localFilters[item.key];
+      return count + (typeof value === 'string' && value.trim().length > 0 ? 1 : 0);
     }
     return count;
   }, 0);
@@ -74,16 +135,20 @@ export function GenericFilter({
   };
 
   const handleReset = () => {
-    const resetState: Record<string, string | number | string[] | undefined> = {};
+    const resetState: Record<string, string | number | boolean | string[] | undefined> = {};
     config.forEach(item => {
       if (item.type === 'multiselect') {
         resetState[item.key] = [];
+      } else if (item.type === 'boolean') {
+        resetState[item.key] = false;
       } else if (item.type === 'range') {
         if (item.minKey) resetState[item.minKey] = '';
         if (item.maxKey) resetState[item.maxKey] = '';
       } else if (item.type === 'date-range') {
         if (item.startKey) resetState[item.startKey] = '';
         if (item.endKey) resetState[item.endKey] = '';
+      } else if (item.key === 'filterMode') {
+        resetState[item.key] = 'all';
       } else {
         resetState[item.key] = '';
       }
@@ -98,6 +163,9 @@ export function GenericFilter({
     const next = current.filter(item => String(item) !== String(value));
     setLocalFilters(prev => ({ ...prev, [key]: next }));
   };
+
+  const matchModeConfig = config.find(item => item.key === 'filterMode' && item.type === 'select');
+  const renderConfig = config.filter(item => item.key !== 'filterMode');
 
   return (
     <div className="w-full space-y-2">
@@ -155,12 +223,62 @@ export function GenericFilter({
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {config.map(item => (
+                {matchModeConfig && (
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <div className="space-y-3">
+                      <Label className="text-muted-foreground text-xs font-semibold">Match</Label>
+                      <div className="flex flex-wrap items-center gap-6">
+                        <label
+                          htmlFor="filter-mode-all"
+                          className="inline-flex cursor-pointer items-center gap-2 text-sm"
+                        >
+                          <Checkbox
+                            id="filter-mode-all"
+                            checked={(localFilters.filterMode as string | undefined) !== 'any'}
+                            onCheckedChange={checked => {
+                              if (checked) {
+                                setLocalFilters(prev => ({ ...prev, filterMode: 'all' }));
+                              }
+                            }}
+                            aria-label="Match all selected filters"
+                          />
+                          <span>
+                            {matchModeConfig.options?.find(option => option.value === 'all')
+                              ?.label ?? 'All selected filters'}
+                          </span>
+                        </label>
+                        <label
+                          htmlFor="filter-mode-any"
+                          className="inline-flex cursor-pointer items-center gap-2 text-sm"
+                        >
+                          <Checkbox
+                            id="filter-mode-any"
+                            checked={(localFilters.filterMode as string | undefined) === 'any'}
+                            onCheckedChange={checked => {
+                              if (checked) {
+                                setLocalFilters(prev => ({ ...prev, filterMode: 'any' }));
+                              } else {
+                                setLocalFilters(prev => ({ ...prev, filterMode: 'all' }));
+                              }
+                            }}
+                            aria-label="Match any selected filter"
+                          />
+                          <span>
+                            {matchModeConfig.options?.find(option => option.value === 'any')
+                              ?.label ?? 'Any selected filter'}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                    <Separator className="mt-4" />
+                  </div>
+                )}
+                {renderConfig.map(item => (
                   <div
                     key={item.key}
-                    className="space-y-2"
+                    className={item.fullWidth ? 'space-y-2 md:col-span-2 lg:col-span-3' : 'space-y-2'}
                   >
-                    <Label className="text-muted-foreground text-xs font-semibold">
+                    <Label className="text-muted-foreground whitespace-pre-line text-xs font-semibold">
                       {item.label}
                     </Label>
 
@@ -226,7 +344,7 @@ export function GenericFilter({
                         ]}
                         value={(localFilters[item.key] as string | number) || ''}
                         onChange={val => setLocalFilters(prev => ({ ...prev, [item.key]: val }))}
-                        placeholder={`Select ${item.label}...`}
+                        placeholder={item.placeholder ?? `Select ${item.label}...`}
                         className="w-full"
                       />
                     )}
@@ -236,8 +354,13 @@ export function GenericFilter({
                         <Input
                           placeholder="Min"
                           type="number"
-                          className="h-8"
-                          value={localFilters[item.minKey] || ''}
+                          className="h-9"
+                          value={
+                            typeof localFilters[item.minKey] === 'boolean'
+                              ? ''
+                              : ((localFilters[item.minKey] as string | number | string[] | undefined) ??
+                                '')
+                          }
                           onChange={e =>
                             setLocalFilters(prev => ({ ...prev, [item.minKey!]: e.target.value }))
                           }
@@ -246,8 +369,13 @@ export function GenericFilter({
                         <Input
                           placeholder="Max"
                           type="number"
-                          className="h-8"
-                          value={localFilters[item.maxKey] || ''}
+                          className="h-9"
+                          value={
+                            typeof localFilters[item.maxKey] === 'boolean'
+                              ? ''
+                              : ((localFilters[item.maxKey] as string | number | string[] | undefined) ??
+                                '')
+                          }
                           onChange={e =>
                             setLocalFilters(prev => ({ ...prev, [item.maxKey!]: e.target.value }))
                           }
@@ -256,37 +384,121 @@ export function GenericFilter({
                     )}
 
                     {item.type === 'date-range' && item.startKey && item.endKey && (
-                      <div className="flex items-center gap-2">
-                        <div className="grid flex-1 gap-1">
+                      <div className="flex flex-wrap items-start gap-2">
+                        <div className="grid w-44 gap-1">
                           <Label className="text-muted-foreground text-[10px] uppercase tracking-wider">
                             From
                           </Label>
-                          <Input
-                            type="date"
-                            className="block h-8"
-                            value={localFilters[item.startKey] || ''}
-                            onChange={e =>
-                              setLocalFilters(prev => ({
-                                ...prev,
-                                [item.startKey!]: e.target.value,
-                              }))
-                            }
-                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="border-input focus-visible:ring-ring h-9 w-full justify-between rounded-md bg-transparent px-3 py-1 text-left text-sm font-normal shadow-sm transition-colors focus-visible:ring-1"
+                              >
+                                <span className="flex-1 truncate text-left">
+                                  {parseDateOnly(localFilters[item.startKey])
+                                    ? parseDateOnly(
+                                        localFilters[item.startKey],
+                                      )!.toLocaleDateString()
+                                    : 'Select date'}
+                                </span>
+                                <CalendarDays className="text-muted-foreground ml-auto h-4 w-4 shrink-0" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="start"
+                              className="w-auto p-0"
+                            >
+                              <Calendar
+                                mode="single"
+                                captionLayout="dropdown"
+                                selected={parseDateOnly(localFilters[item.startKey])}
+                                onSelect={date => { 
+                                  if (!date) return;
+                                  setLocalFilters(prev => ({
+                                    ...prev,
+                                    [item.startKey!]: toDateOnlyValue(date),
+                                  }));
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </div>
-                        <div className="grid flex-1 gap-1">
+                        <div className="grid w-44 gap-1">
                           <Label className="text-muted-foreground text-[10px] uppercase tracking-wider">
                             To
                           </Label>
-                          <Input
-                            type="date"
-                            className="block h-8"
-                            value={localFilters[item.endKey] || ''}
-                            onChange={e =>
-                              setLocalFilters(prev => ({ ...prev, [item.endKey!]: e.target.value }))
-                            }
-                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="border-input focus-visible:ring-ring h-9 w-full justify-between rounded-md bg-transparent px-3 py-1 text-left text-sm font-normal shadow-sm transition-colors focus-visible:ring-1"
+                              >
+                                <span className="flex-1 truncate text-left">
+                                  {parseDateOnly(localFilters[item.endKey])
+                                    ? parseDateOnly(localFilters[item.endKey])!.toLocaleDateString()
+                                    : 'Select date'}
+                                </span>
+                                <CalendarDays className="text-muted-foreground ml-auto h-4 w-4 shrink-0" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="start"
+                              className="w-auto p-0"
+                            >
+                              <Calendar
+                                mode="single"
+                                captionLayout="dropdown"
+                                selected={parseDateOnly(localFilters[item.endKey])}
+                                onSelect={date => {
+                                  if (!date) return;
+                                  setLocalFilters(prev => ({
+                                    ...prev,
+                                    [item.endKey!]: toDateOnlyValue(date),
+                                  }));
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
+                    )}
+
+                    {item.type === 'boolean' && (
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <Label
+                          htmlFor={`filter-${item.key}`}
+                          className="text-sm font-medium"
+                        >
+                          {item.label}
+                        </Label>
+                        <Switch
+                          id={`filter-${item.key}`}
+                          checked={localFilters[item.key] === true}
+                          onCheckedChange={checked =>
+                            setLocalFilters(prev => ({ ...prev, [item.key]: checked }))
+                          }
+                          aria-label={item.label}
+                        />
+                      </div>
+                    )}
+
+                    {item.type === 'text' && (
+                      <Input
+                        placeholder={item.placeholder ?? item.label}
+                        className="h-9"
+                        value={(() => {
+                          const value = localFilters[item.key];
+                          return typeof value === 'string' ? value : '';
+                        })()}
+                        onChange={event =>
+                          setLocalFilters(prev => ({ ...prev, [item.key]: event.target.value }))
+                        }
+                      />
                     )}
                   </div>
                 ))}

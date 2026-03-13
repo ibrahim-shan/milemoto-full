@@ -113,7 +113,10 @@ export function serverFetchProducts(
   }
 
   const qs = searchParams.toString();
-  return serverGet<PaginatedStorefrontProducts>(`${BASE}/products${qs ? `?${qs}` : ''}`, revalidate);
+  return serverGet<PaginatedStorefrontProducts>(
+    `${BASE}/products${qs ? `?${qs}` : ''}`,
+    revalidate,
+  );
 }
 
 /** Fetch a single product by slug */

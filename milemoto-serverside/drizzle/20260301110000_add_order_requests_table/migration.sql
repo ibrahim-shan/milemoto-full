@@ -1,0 +1,23 @@
+CREATE TABLE `orderrequests` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `orderId` bigint unsigned NOT NULL,
+  `userId` bigint unsigned NOT NULL,
+  `type` enum('cancel','return','refund') NOT NULL,
+  `status` enum('pending','approved','rejected','completed','cancelled_by_user') NOT NULL DEFAULT 'pending',
+  `reason` varchar(1000) NULL,
+  `adminNote` varchar(1000) NULL,
+  `metadataJson` longtext NULL,
+  `requestedAt` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `decidedAt` datetime NULL,
+  `completedAt` datetime NULL,
+  `decidedByUserId` bigint unsigned NULL,
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idxOrderRequestsOrderTypeStatus` (`orderId`, `type`, `status`),
+  KEY `idxOrderRequestsUserStatusRequestedAt` (`userId`, `status`, `requestedAt`),
+  KEY `idxOrderRequestsStatusRequestedAt` (`status`, `requestedAt`),
+  CONSTRAINT `fkOrderRequestsOrder` FOREIGN KEY (`orderId`) REFERENCES `orders` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fkOrderRequestsUser` FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fkOrderRequestsDecidedBy` FOREIGN KEY (`decidedByUserId`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
+);

@@ -123,3 +123,34 @@ export const UpdateTaxPolicySettings = TaxPolicySettings.partial();
 export type UpdateTaxPolicySettingsDto = z.infer<typeof UpdateTaxPolicySettings>;
 
 export type TaxPolicySettingsResponse = TaxPolicySettingsDto;
+
+// ==== Order Request Policy Settings Types ====
+
+export const OrderRequestPolicySettings = z.object({
+  returnWindowDays: z.number().int().min(0).max(365),
+  refundWindowDays: z.number().int().min(0).max(365),
+  returnRestockLocationId: z.number().int().min(0),
+});
+
+export type OrderRequestPolicySettingsDto = z.infer<typeof OrderRequestPolicySettings>;
+
+export const UpdateOrderRequestPolicySettings = OrderRequestPolicySettings.partial();
+
+export type UpdateOrderRequestPolicySettingsDto = z.infer<typeof UpdateOrderRequestPolicySettings>;
+
+export type OrderRequestPolicySettingsResponse = OrderRequestPolicySettingsDto;
+
+// ==== Invoice Policy Settings Types ====
+
+export const InvoicePolicySettings = z.object({
+  autoGenerateEnabled: z.boolean(),
+  autoGenerateTrigger: z.enum(['delivered', 'payment_confirmed']),
+});
+
+export type InvoicePolicySettingsDto = z.infer<typeof InvoicePolicySettings>;
+
+export const UpdateInvoicePolicySettings = InvoicePolicySettings.partial();
+
+export type UpdateInvoicePolicySettingsDto = z.infer<typeof UpdateInvoicePolicySettings>;
+
+export type InvoicePolicySettingsResponse = InvoicePolicySettingsDto;

@@ -14,7 +14,10 @@ export type WarrantyListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  filterMode?: 'all' | 'any';
   status?: 'active' | 'inactive';
+  sortBy?: 'name' | 'description' | 'status' | 'createdAt' | 'updatedAt';
+  sortDir?: 'asc' | 'desc';
 };
 
 // Keys

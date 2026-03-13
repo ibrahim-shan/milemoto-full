@@ -295,6 +295,36 @@ export const currencies = mysqlTable(
   (table) => [uniqueIndex("uniqueCurrencyCode").on(table.code)]
 );
 
+export const coupons = mysqlTable(
+  "coupons",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    code: varchar({ length: 100 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci").notNull(),
+    type: mysqlEnum(["fixed", "percentage"]).notNull(),
+    value: decimal({ precision: 15, scale: 2, mode: "number" }).notNull(),
+    minSubtotal: decimal({ precision: 15, scale: 2, mode: "number" }),
+    maxDiscount: decimal({ precision: 15, scale: 2, mode: "number" }),
+    startsAt: datetime(),
+    endsAt: datetime(),
+    status: mysqlEnum(["active", "inactive"]).default("active").notNull(),
+    usageLimit: int(),
+    perUserLimit: int(),
+    usedCount: int().default(0).notNull(),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniqCouponsCode").on(table.code),
+    index("idxCouponsStatus").on(table.status),
+    index("idxCouponsStartsAt").on(table.startsAt),
+    index("idxCouponsEndsAt").on(table.endsAt),
+  ]
+);
+
 export const emailverifications = mysqlTable(
   "emailverifications",
   {
@@ -1627,7 +1657,7 @@ export const unitgroups = mysqlTable("unitgroups", {
     .notNull(),
 });
 
-export const unitvalues = mysqlTable(
+export const unitvalues = mysqlTable( 
   "unitvalues",
   {
     id: int().autoincrement().primaryKey(),
@@ -1930,6 +1960,67 @@ export const wishlistitems = mysqlTable(
 // Audit Logs - Track sensitive admin operations
 // ─────────────────────────────────────────────────────────────────────────────
 
+export const productreviews = mysqlTable(
+  "productreviews",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    productId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    userId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    rating: tinyint({ unsigned: true }).notNull(),
+    previousRating: tinyint({ unsigned: true }),
+    comment: text().charSet("utf8mb4").collate("utf8mb4_unicode_ci").notNull(),
+    previousComment: text().charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    status: mysqlEnum(["pending", "approved", "rejected", "deleted_by_user"])
+      .default("pending")
+      .notNull(),
+    moderationNote: varchar({ length: 500 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    isSuspicious: tinyint({ unsigned: true }).default(0).notNull(),
+    suspiciousScore: int().default(0).notNull(),
+    suspiciousReasonsJson: text().charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    suspiciousFlaggedAt: datetime(),
+    editedAt: datetime(),
+    approvedAt: datetime(),
+    approvedByUserId: bigint({ unsigned: true, mode: "number" }),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idxProductReviewsUserProduct").on(table.userId, table.productId),
+    index("idxProductReviewsProductStatus").on(table.productId, table.status),
+    index("idxProductReviewsStatusCreatedAt").on(table.status, table.createdAt),
+    index("idxProductReviewsSuspiciousStatusCreatedAt").on(
+      table.isSuspicious,
+      table.status,
+      table.createdAt
+    ),
+    foreignKey({
+      columns: [table.productId],
+      foreignColumns: [products.id],
+      name: "fkProductReviewsProduct",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "fkProductReviewsUser",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.approvedByUserId],
+      foreignColumns: [users.id],
+      name: "fkProductReviewsApprovedBy",
+    })
+      .onUpdate("restrict")
+      .onDelete("set null"),
+  ]
+);
+
 export const orders = mysqlTable(
   "orders",
   {
@@ -2058,6 +2149,100 @@ export const orders = mysqlTable(
   ]
 );
 
+export const invoices = mysqlTable(
+  "invoices",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    invoiceNumber: varchar({ length: 50 })
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    orderId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    status: mysqlEnum(["draft", "issued", "paid", "partially_paid", "void"])
+      .default("issued")
+      .charSet("utf8mb4")
+      .collate("utf8mb4_unicode_ci")
+      .notNull(),
+    currency: char({ length: 3 }).notNull(),
+    subtotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    discountTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    shippingTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    taxTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    grandTotal: decimal({ precision: 15, scale: 2, mode: "number" }).default(0.0).notNull(),
+    issuedAt: datetime().default(sql`CURRENT_TIMESTAMP`).notNull(),
+    dueAt: datetime(),
+    paidAt: datetime(),
+    note: varchar({ length: 1000 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    createdByUserId: bigint({ unsigned: true, mode: "number" }),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniqInvoiceNumber").on(table.invoiceNumber),
+    uniqueIndex("uniqInvoiceOrder").on(table.orderId),
+    index("idxInvoicesStatusIssuedAt").on(table.status, table.issuedAt),
+    index("idxInvoicesCreatedAt").on(table.createdAt),
+    foreignKey({
+      columns: [table.orderId],
+      foreignColumns: [orders.id],
+      name: "fkInvoicesOrder",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.createdByUserId],
+      foreignColumns: [users.id],
+      name: "fkInvoicesCreatedBy",
+    })
+      .onUpdate("restrict")
+      .onDelete("set null"),
+  ]
+);
+
+export const couponredemptions = mysqlTable(
+  "couponredemptions",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    couponId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    userId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    orderId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    discountAmount: decimal({ precision: 15, scale: 2, mode: "number" }).notNull(),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniqCouponRedemptionsCouponOrder").on(table.couponId, table.orderId),
+    index("idxCouponRedemptionsCouponUser").on(table.couponId, table.userId),
+    index("idxCouponRedemptionsOrder").on(table.orderId),
+    foreignKey({
+      columns: [table.couponId],
+      foreignColumns: [coupons.id],
+      name: "fkCouponRedemptionsCoupon",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "fkCouponRedemptionsUser",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.orderId],
+      foreignColumns: [orders.id],
+      name: "fkCouponRedemptionsOrder",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+  ]
+);
+
 export const orderitems = mysqlTable(
   "orderitems",
   {
@@ -2136,6 +2321,60 @@ export const orderstatushistory = mysqlTable(
       columns: [table.actorUserId],
       foreignColumns: [users.id],
       name: "fkOrderStatusHistoryActor",
+    })
+      .onUpdate("restrict")
+      .onDelete("set null"),
+  ]
+);
+
+export const orderrequests = mysqlTable(
+  "orderrequests",
+  {
+    id: bigint({ unsigned: true, mode: "number" }).autoincrement().primaryKey(),
+    orderId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    userId: bigint({ unsigned: true, mode: "number" }).notNull(),
+    type: mysqlEnum(["cancel", "return", "refund"]).notNull(),
+    status: mysqlEnum(["pending", "approved", "rejected", "completed", "cancelled_by_user"])
+      .default("pending")
+      .notNull(),
+    reason: varchar({ length: 1000 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    adminNote: varchar({ length: 1000 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    metadataJson: longtext().charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+    requestedAt: datetime().default(sql`CURRENT_TIMESTAMP`).notNull(),
+    decidedAt: datetime(),
+    completedAt: datetime(),
+    decidedByUserId: bigint({ unsigned: true, mode: "number" }),
+    createdAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp()
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    activeRequestKey: varchar({ length: 128 }).charSet("utf8mb4").collate("utf8mb4_unicode_ci"),
+  },
+  (table) => [
+    uniqueIndex("uqOrderRequestsActiveRequestKey").on(table.activeRequestKey),
+    index("idxOrderRequestsOrderTypeStatus").on(table.orderId, table.type, table.status),
+    index("idxOrderRequestsUserStatusRequestedAt").on(table.userId, table.status, table.requestedAt),
+    index("idxOrderRequestsStatusRequestedAt").on(table.status, table.requestedAt),
+    foreignKey({
+      columns: [table.orderId],
+      foreignColumns: [orders.id],
+      name: "fkOrderRequestsOrder",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "fkOrderRequestsUser",
+    })
+      .onUpdate("restrict")
+      .onDelete("cascade"),
+    foreignKey({
+      columns: [table.decidedByUserId],
+      foreignColumns: [users.id],
+      name: "fkOrderRequestsDecidedBy",
     })
       .onUpdate("restrict")
       .onDelete("set null"),

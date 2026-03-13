@@ -17,7 +17,10 @@ export type CreateWarrantyDto = z.infer<typeof CreateWarranty>;
 export type UpdateWarrantyDto = z.infer<typeof UpdateWarranty>;
 
 export const WarrantyListQuery = PaginationSchema.extend({
+  filterMode: z.enum(["all", "any"]).optional(),
   status: WarrantyStatus.optional(),
+  sortBy: z.enum(["name", "description", "status", "createdAt", "updatedAt"]).optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 export type WarrantyListQueryDto = z.infer<typeof WarrantyListQuery>;

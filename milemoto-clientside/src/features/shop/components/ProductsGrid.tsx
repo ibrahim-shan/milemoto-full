@@ -42,9 +42,10 @@ export function ProductsGrid({
           imageSrc={p.imageSrc || IMAGE_PLACEHOLDERS.product4x3}
           imageAlt={p.name}
           priceMinor={(p.startingPrice ?? 0) * 100}
+          outOfStock={Number(p.totalAvailable ?? 0) <= 0}
           productSlug={p.slug}
-          quickAddVariantId={p.singleVariantId ?? undefined}
-          quickAddStock={p.singleVariantAvailable ?? undefined}
+          {...(p.singleVariantId != null ? { quickAddVariantId: p.singleVariantId } : {})}
+          {...(p.singleVariantAvailable != null ? { quickAddStock: p.singleVariantAvailable } : {})}
           variant={cardVariant}
           onAdd={() => onAdd?.(p)}
           imgPriority={i === 0}

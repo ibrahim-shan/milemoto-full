@@ -18,4 +18,3 @@ export const mergeWishlist = (productSlugs: string[]) =>
   authorizedPost<WishlistResponse>('/wishlist/merge', {
     items: productSlugs.map(productSlug => ({ productSlug })),
   });
-

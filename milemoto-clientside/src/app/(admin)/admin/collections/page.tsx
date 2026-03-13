@@ -2,13 +2,16 @@
 
 import { useState } from 'react';
 
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
+import { CollectionFilters } from '@/features/admin/collections/collection-filters';
 import { CollectionDialog } from '@/features/admin/collections/CollectionDialog';
 import { CollectionTable } from '@/features/admin/collections/CollectionTable';
 import { ManageCollectionDrawer } from '@/features/admin/collections/ManageCollectionDrawer';
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { Collection, useDeleteCollection, useGetCollections } from '@/hooks/useCollectionQueries';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { SortDirection } from '@/ui/sortable-table-head';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,38 +25,48 @@ import {
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { ColumnVisibilityMenu } from '@/ui/column-visibility-menu';
-import { FilterConfig, GenericFilter } from '@/ui/generic-filter';
-import { Input } from '@/ui/input';
+
+const COLLECTION_COLUMNS = [
+  { id: 'name', label: 'Name', alwaysVisible: true },
+  { id: 'type', label: 'Type' },
+  { id: 'match', label: 'Match' },
+  { id: 'rules', label: 'Rules' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
 
 export default function CollectionsPage() {
-  const columns = [
-    { id: 'name', label: 'Name' },
-    { id: 'type', label: 'Type' },
-    { id: 'match', label: 'Match' },
-    { id: 'rules', label: 'Rules' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = COLLECTION_COLUMNS;
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<Record<string, string | number | string[] | undefined>>(
-    {},
-  );
+  const [sortBy, setSortBy] = useState<
+    'name' | 'type' | 'matchType' | 'status' | 'createdAt' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
+    type: '',
+    status: '',
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Collection | null>(null);
   const [toDelete, setToDelete] = useState<Collection | null>(null);
   const [selected, setSelected] = useState<Collection | null>(null);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.collections.columns',
   );
   const listParams = {
     page,
     limit: pageSize,
     search,
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
     ...(filters.type ? { type: filters.type as 'manual' | 'automatic' } : {}),
     ...(filters.status ? { status: filters.status as 'active' | 'inactive' } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   } as const;
 
   const { data, isLoading, isError, refetch } = useGetCollections(listParams);
@@ -65,7 +78,7 @@ export default function CollectionsPage() {
 
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
 
@@ -73,27 +86,6 @@ export default function CollectionsPage() {
     (count, column) => count + (isColumnVisible(column.id) ? 1 : 0),
     0,
   );
-
-  const filterConfig: FilterConfig[] = [
-    {
-      key: 'type',
-      label: 'Type',
-      type: 'select',
-      options: [
-        { label: 'Manual', value: 'manual' },
-        { label: 'Automatic', value: 'automatic' },
-      ],
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-      ],
-    },
-  ];
 
   const openCreate = () => {
     setEditing(null);
@@ -116,6 +108,12 @@ export default function CollectionsPage() {
     }
   };
 
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
+
   return (
     <PermissionGuard requiredPermission="collections.read">
       <Card>
@@ -124,27 +122,17 @@ export default function CollectionsPage() {
         </CardHeader>
         <CardContent>
           <div className="mb-6">
-            <GenericFilter
-              config={filterConfig}
+            <CollectionFilters
               filters={filters}
               onFilterChange={nextFilters => {
                 setFilters(nextFilters);
                 setPage(1);
               }}
-              search={
-                <div className="relative max-w-sm flex-1">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-                  <Input
-                    placeholder="Search collections..."
-                    className="pl-9"
-                    value={search}
-                    onChange={e => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                  />
-                </div>
-              }
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
               actions={
                 <div className="flex items-center gap-2">
                   <ColumnVisibilityMenu
@@ -186,6 +174,9 @@ export default function CollectionsPage() {
               setPageSize(next);
               setPage(1);
             }}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSortChange={handleSortChange}
           />
         </CardContent>
       </Card>
@@ -227,3 +218,5 @@ export default function CollectionsPage() {
     </PermissionGuard>
   );
 }
+
+

@@ -31,7 +31,10 @@ wishlist.delete(
   '/items/by-slug/:slug',
   asyncHandler(async (req, res) => {
     const userId = Number(req.user!.id);
-    const data = await wishlistService.removeWishlistItemBySlug(userId, String(req.params.slug || ''));
+    const data = await wishlistService.removeWishlistItemBySlug(
+      userId,
+      String(req.params.slug || '')
+    );
     res.json(data);
   })
 );
@@ -54,4 +57,3 @@ wishlist.post(
     res.json(data);
   })
 );
-

@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 
-import { Edit, Eye, MoreHorizontal, Search, Trash } from 'lucide-react';
+import { Edit, Eye, MoreHorizontal, Trash } from 'lucide-react';
 
 import { PermissionGuard } from '@/features/admin/components/PermissionGuard';
 import { CustomerDetailDialog } from '@/features/admin/customers/customer-detail-dialog';
 import { CustomerEditDialog } from '@/features/admin/customers/customer-edit-dialog';
+import { CustomerFilters } from '@/features/admin/customers/customer-filters';
 import { Skeleton } from '@/features/feedback/Skeleton';
 import { PaginationControls } from '@/features/pagination/pagination-controls';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Customer, useGetCustomers } from '@/hooks/useCustomerQueries';
 import { useDefaultCurrency } from '@/hooks/useDefaultCurrency';
 import { formatCurrency } from '@/lib/formatCurrency';
@@ -28,32 +30,38 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { ColumnVisibilityMenu } from '@/ui/column-visibility-menu';
 import {
   DropdownMenu,
-  DropdownMenuContent,
+  DropdownMenuContent,  
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
-import { FilterConfig, GenericFilter } from '@/ui/generic-filter';
-import { Input } from '@/ui/input';
 import { StatusBadge } from '@/ui/status-badge';
+import { SortDirection, SortableTableHead } from '@/ui/sortable-table-head';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { TableStateMessage } from '@/ui/table-state-message';
 
+const CUSTOMER_COLUMNS = [
+  { id: 'customer', label: 'Customer', alwaysVisible: true },
+  { id: 'contact', label: 'Contact' },
+  { id: 'registered', label: 'Registered' },
+  { id: 'orders', label: 'Orders' },  
+  { id: 'spent', label: 'Total Spent' },
+  { id: 'status', label: 'Status' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true },
+] as const;
+
 export default function CustomersPage() {
-  const columns = [
-    { id: 'customer', label: 'Customer' },
-    { id: 'contact', label: 'Contact' },
-    { id: 'registered', label: 'Registered' },
-    { id: 'orders', label: 'Orders' },
-    { id: 'spent', label: 'Total Spent' },
-    { id: 'status', label: 'Status' },
-    { id: 'actions', label: 'Actions', alwaysVisible: true },
-  ];
+  const columns = CUSTOMER_COLUMNS;
 
   // State
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<Record<string, string | number | string[] | undefined>>({
+  const [sortBy, setSortBy] = useState<
+    'fullName' | 'email' | 'createdAt' | 'totalOrders' | 'totalSpent' | 'status' | undefined
+  >(undefined);
+  const [sortDir, setSortDir] = useState<SortDirection | undefined>(undefined);
+  const [filters, setFilters] = useState<Record<string, string | number | boolean | string[] | undefined>>({
+    filterMode: 'all',
     status: '',
     ordersMin: '',
     ordersMax: '',
@@ -69,52 +77,20 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map(column => [column.id, true])),
+  const { visibility: columnVisibility, setVisibility: setColumnVisibility } = useColumnVisibility(
+    columns,
+    'admin.customers.columns',
   );
 
   // Get default currency with position and decimals
   const { symbol: currencySymbol, position: currencyPosition, decimals } = useDefaultCurrency();
-
-  const filterConfig: FilterConfig[] = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-        { label: 'Blocked', value: 'blocked' },
-      ],
-    },
-    {
-      key: 'orders',
-      label: 'Orders',
-      type: 'range',
-      minKey: 'ordersMin',
-      maxKey: 'ordersMax',
-    },
-    {
-      key: 'spent',
-      label: 'Total Spent',
-      type: 'range',
-      minKey: 'spentMin',
-      maxKey: 'spentMax',
-    },
-    {
-      key: 'date',
-      label: 'Registration Date',
-      type: 'date-range',
-      startKey: 'dateStart',
-      endKey: 'dateEnd',
-    },
-  ];
 
   // Queries
   const queryParams = {
     page,
     limit: pageSize,
     search,
+    ...(filters.filterMode === 'any' ? { filterMode: 'any' as const } : {}),
     ...(filters.status ? { status: filters.status as 'active' | 'inactive' | 'blocked' } : {}),
     ...(filters.ordersMin ? { ordersMin: Number(filters.ordersMin) } : {}),
     ...(filters.ordersMax ? { ordersMax: Number(filters.ordersMax) } : {}),
@@ -122,6 +98,8 @@ export default function CustomersPage() {
     ...(filters.spentMax ? { spentMax: Number(filters.spentMax) } : {}),
     ...(filters.dateStart ? { dateStart: String(filters.dateStart) } : {}),
     ...(filters.dateEnd ? { dateEnd: String(filters.dateEnd) } : {}),
+    ...(sortBy ? { sortBy } : {}),
+    ...(sortBy && sortDir ? { sortDir } : {}),
   };
 
   const { data, isLoading, isError, refetch } = useGetCustomers(queryParams);
@@ -171,13 +149,18 @@ export default function CustomersPage() {
   const totalPages = Math.ceil(totalCount / pageSize);
   const isColumnVisible = (id: string) => {
     const column = columns.find(item => item.id === id);
-    if (column?.alwaysVisible) return true;
+    if (column && 'alwaysVisible' in column && column.alwaysVisible) return true;
     return columnVisibility[id] !== false;
   };
   const visibleColumnCount = columns.reduce(
     (count, column) => count + (isColumnVisible(column.id) ? 1 : 0),
     0,
   );
+  const handleSortChange = (nextSortBy?: string, nextSortDir?: SortDirection) => {
+    setSortBy(nextSortBy as typeof sortBy);
+    setSortDir(nextSortDir);
+    setPage(1);
+  };
 
   return (
     <PermissionGuard requiredPermission="customers.read">
@@ -188,27 +171,17 @@ export default function CustomersPage() {
         <CardContent>
           {/* Toolbar area */}
           <div className="mb-6">
-            <GenericFilter
-              config={filterConfig}
+            <CustomerFilters
               filters={filters}
-              onFilterChange={newFilters => {
-                setFilters(newFilters);
+              onFilterChange={nextFilters => {
+                setFilters(nextFilters);
                 setPage(1);
               }}
-              search={
-                <div className="relative max-w-sm">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
-                  <Input
-                    placeholder="Search customers..."
-                    className="pl-9"
-                    value={search}
-                    onChange={e => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                  />
-                </div>
-              }
+              search={search}
+              onSearchChange={value => {
+                setSearch(value);
+                setPage(1);
+              }}
               actions={
                 <ColumnVisibilityMenu
                   columns={columns}
@@ -225,12 +198,72 @@ export default function CustomersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isColumnVisible('customer') && <TableHead>Customer</TableHead>}
-                {isColumnVisible('contact') && <TableHead>Contact</TableHead>}
-                {isColumnVisible('registered') && <TableHead>Registered</TableHead>}
-                {isColumnVisible('orders') && <TableHead>Orders</TableHead>}
-                {isColumnVisible('spent') && <TableHead>Total Spent</TableHead>}
-                {isColumnVisible('status') && <TableHead>Status</TableHead>}
+                {isColumnVisible('customer') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Customer"
+                      columnKey="fullName"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('contact') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Contact"
+                      columnKey="email"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('registered') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Registered"
+                      columnKey="createdAt"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('orders') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Orders"
+                      columnKey="totalOrders"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('spent') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Total Spent"
+                      columnKey="totalSpent"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
+                {isColumnVisible('status') && (
+                  <TableHead>
+                    <SortableTableHead
+                      label="Status"
+                      columnKey="status"
+                      sortBy={sortBy}
+                      sortDir={sortDir}
+                      onSortChange={handleSortChange}
+                    />
+                  </TableHead>
+                )}
                 {isColumnVisible('actions') && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -409,7 +442,10 @@ export default function CustomersPage() {
 
           {/* Pagination */}
           {data && totalPages > 1 && (
-            <div className="mt-4">
+            <div className="flex items-center justify-between pt-4">
+              <div className="text-muted-foreground text-sm">
+                Page {page} of {totalPages} (Total {totalCount} items)
+              </div>
               <PaginationControls
                 currentPage={page}
                 totalCount={totalCount}
@@ -467,3 +503,4 @@ export default function CustomersPage() {
     </PermissionGuard>
   );
 }
+

@@ -2,11 +2,19 @@ import type { CheckoutQuoteDto, CheckoutQuoteResponse } from '@milemoto/types';
 import { validateCart } from '../cart.service.js';
 import { httpError } from '../../utils/error.js';
 import { calculateCheckoutTaxes } from './tax.js';
+import { resolveCouponForQuote } from './coupon.js';
 
 export async function quoteCheckout(
   userId: number,
   input: CheckoutQuoteDto
 ): Promise<CheckoutQuoteResponse> {
+  const nonBlockingCouponErrors = new Set([
+    'COUPON_INVALID',
+    'COUPON_EXPIRED',
+    'COUPON_USAGE_LIMIT_REACHED',
+    'COUPON_MIN_SUBTOTAL_NOT_MET',
+    'COUPON_NOT_STARTED',
+  ]);
   const paymentMethodCode = (input.paymentMethodCode || 'cod').toLowerCase();
   if (paymentMethodCode !== 'cod') {
     throw httpError(
@@ -50,7 +58,39 @@ export async function quoteCheckout(
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
-  const discountTotal = 0;
+  let discountTotal = 0;
+  try {
+    const resolvedCoupon = await resolveCouponForQuote({
+      userId,
+      couponCode: input.couponCode ?? null,
+      subtotal,
+    });
+    discountTotal = resolvedCoupon?.discountTotal ?? 0;
+  } catch (error) {
+    const code =
+      typeof error === 'object' && error && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
+    switch (code) {
+      case 'CouponExpired':
+        errors.push('COUPON_EXPIRED');
+        break;
+      case 'CouponUsageLimitReached':
+        errors.push('COUPON_USAGE_LIMIT_REACHED');
+        break;
+      case 'CouponMinSubtotalNotMet':
+        errors.push('COUPON_MIN_SUBTOTAL_NOT_MET');
+        break;
+      case 'CouponNotStarted':
+        errors.push('COUPON_NOT_STARTED');
+        break;
+      case 'CouponInvalid':
+        errors.push('COUPON_INVALID');
+        break;
+      default:
+        throw error;
+    }
+  }
   const shippingTotal = 0;
   const tax = await calculateCheckoutTaxes({
     subtotal,
@@ -65,6 +105,7 @@ export async function quoteCheckout(
   });
   const taxTotal = tax.taxTotal;
   const grandTotal = subtotal - discountTotal + shippingTotal + taxTotal;
+  const blockingErrors = errors.filter((errorCode) => !nonBlockingCouponErrors.has(errorCode));
 
   return {
     cartId: cart.id,
@@ -81,6 +122,6 @@ export async function quoteCheckout(
       taxTotal,
       grandTotal,
     },
-    canPlaceOrder: errors.length === 0,
+    canPlaceOrder: blockingErrors.length === 0,
   };
 }

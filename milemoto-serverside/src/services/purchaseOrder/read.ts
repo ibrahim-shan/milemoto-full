@@ -1,36 +1,67 @@
 import { and, asc, desc, eq, gte, like, lte, or, sql } from 'drizzle-orm';
-import { purchaseorderlines, purchaseorders } from '@milemoto/types';
+import { purchaseorderlines, purchaseorders, vendors } from '@milemoto/types';
 import { db } from '../../db/drizzle.js';
 import { httpError } from '../../utils/error.js';
 import { buildPaginatedResponse } from '../../utils/response.js';
 import type { ListQueryDto } from '../../routes/admin/helpers/purchaseOrder.helpers.js';
 
 export async function listPurchaseOrders(params: ListQueryDto) {
-  const { page, limit, search, status, vendorId, paymentMethodId, dateFrom, dateTo } = params;
+  const {
+    page,
+    limit,
+    search,
+    filterMode = 'all',
+    status,
+    vendorId,
+    paymentMethodId,
+    dateFrom,
+    dateTo,
+    sortBy,
+    sortDir = 'desc',
+  } = params;
   const offset = (page - 1) * limit;
 
-  const filters = [
+  const searchFilter = search
+    ? or(
+        like(purchaseorders.poNumber, `%${search}%`),
+        like(purchaseorders.subject, `%${search}%`)
+      )
+    : undefined;
+  const optionalFilters = [
     status ? eq(purchaseorders.status, status) : undefined,
     vendorId ? eq(purchaseorders.vendorId, vendorId) : undefined,
     paymentMethodId ? eq(purchaseorders.paymentMethodId, paymentMethodId) : undefined,
-    search
-      ? or(
-          like(purchaseorders.poNumber, `%${search}%`),
-          like(purchaseorders.subject, `%${search}%`)
-        )
-      : undefined,
     dateFrom ? gte(purchaseorders.createdAt, new Date(dateFrom)) : undefined,
     dateTo ? lte(purchaseorders.createdAt, new Date(dateTo)) : undefined,
   ].filter(Boolean) as NonNullable<ReturnType<typeof and>>[];
 
-  const where = filters.length ? and(...filters) : undefined;
+  const structuredFilter =
+    optionalFilters.length === 0
+      ? undefined
+      : filterMode === 'any'
+        ? or(...optionalFilters)
+        : and(...optionalFilters);
+  const where = and(searchFilter, structuredFilter);
+  const sortColumns = {
+    poNumber: purchaseorders.poNumber,
+    subject: purchaseorders.subject,
+    status: purchaseorders.status,
+    total: purchaseorders.total,
+    createdAt: purchaseorders.createdAt,
+  } as const;
+  const sortColumn = sortBy ? sortColumns[sortBy] : undefined;
+  const orderExpr = sortColumn
+    ? sortDir === 'asc'
+      ? asc(sortColumn)
+      : desc(sortColumn)
+    : desc(purchaseorders.createdAt);
 
   const [items, countRows] = await Promise.all([
     db
       .select()
       .from(purchaseorders)
       .where(where)
-      .orderBy(desc(purchaseorders.createdAt))
+      .orderBy(orderExpr)
       .limit(limit)
       .offset(offset),
     db
@@ -65,5 +96,20 @@ export async function getPurchaseOrder(id: number) {
   return {
     ...header,
     lines,
+  };
+}
+
+export async function getPurchaseOrderFilterOptions() {
+  const vendorRows = await db
+    .selectDistinct({ id: vendors.id, name: vendors.name })
+    .from(purchaseorders)
+    .innerJoin(vendors, eq(vendors.id, purchaseorders.vendorId))
+    .orderBy(asc(vendors.name));
+
+  return {
+    vendors: vendorRows.map(row => ({
+      id: Number(row.id),
+      name: row.name,
+    })),
   };
 }
